@@ -28,17 +28,17 @@ If a monorepo tool is overkill for the team size, two separate repos (`lifeos-fr
 src/
 ├── app/
 │   ├── core/                    # app-wide singletons, loaded once
-│   │   ├── auth/                 # auth guard, token interceptor, auth state
-│   │   ├── interceptors/         # error handling, loading state
-│   │   └── services/             # api-client base, config
+│   │   ├── auth/                 # auth guard, guest guard, token interceptor, auth state (signals)
+│   │   ├── layout/                # shell-wide UI state: sidenav/drawer signals, breadcrumb builder
+│   │   └── services/             # api-client base, config, health check
 │   ├── shared/                   # reusable, presentational only — no feature logic
-│   │   ├── components/           # buttons, modals, form controls
+│   │   ├── components/           # breadcrumb, stat-card, feature-placeholder, ...
 │   │   ├── directives/
 │   │   ├── pipes/
 │   │   └── ui/                   # design-system wrapper around Angular Material + Tailwind tokens
-│   ├── layout/                   # shell, navbar, sidenav, mobile nav
+│   ├── layout/                   # shell, navbar, sidenav, auth-layout, mobile drawer
 │   ├── features/
-│   │   ├── auth/                 # login, register, password reset, google oauth callback
+│   │   ├── auth/                 # login, register, password reset (UI-only), google oauth callback
 │   │   ├── dashboard/
 │   │   ├── planner/               # daily/weekly/monthly planning, time blocking, templates
 │   │   ├── tasks/
@@ -59,6 +59,11 @@ src/
 ├── environments/
 └── styles/                        # Tailwind config, theme tokens (light/dark)
 ```
+
+**Deviations from the plan above, made during implementation:**
+- `core/interceptors/` was folded into `core/auth/` — the only interceptor built so far (attaching/refreshing the access token) is inherently auth-specific, not a generic cross-cutting concern. A true cross-cutting interceptor (e.g. a future global error-toast) would still get its own `core/interceptors/`.
+- `core/layout/` was added (not in the original plan) once shell-wide state (sidenav collapse, mobile drawer, breadcrumbs) needed a home distinct from `core/services/`'s generic API clients.
+- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Schedule, Habits, Journal, AI Coach, Analytics, Settings as of Milestone 3) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
 
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```

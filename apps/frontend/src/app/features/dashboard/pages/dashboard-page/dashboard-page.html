@@ -1,0 +1,17 @@
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1>{{ welcomeMessage() }}</h1>
+    <p class="dashboard__datetime">{{ formattedDate() }} · {{ formattedTime() }}</p>
+  </header>
+
+  <div class="dashboard__stats">
+    @for (stat of stats; track stat.label) {
+      <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+    }
+  </div>
+
+  <div class="dashboard__panels">
+    <app-quick-actions />
+    <app-recent-activity />
+  </div>
+</section>

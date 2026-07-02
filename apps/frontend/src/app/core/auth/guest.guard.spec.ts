@@ -18,7 +18,7 @@ describe('guestGuard', () => {
     expect(runGuard()).toBe(true);
   });
 
-  it('redirects to /home when already authenticated', () => {
+  it('redirects to /dashboard when already authenticated', () => {
     TestBed.configureTestingModule({
       providers: [provideRouter([]), { provide: AuthService, useValue: { isAuthenticated: () => true } }],
     });

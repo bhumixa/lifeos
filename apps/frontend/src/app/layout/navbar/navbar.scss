@@ -1,0 +1,39 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.navbar__breadcrumb {
+  margin-left: 0.5rem;
+}
+
+.navbar__spacer {
+  flex: 1 1 auto;
+}
+
+.navbar__empty-menu {
+  padding: 0.5rem 1rem;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+.navbar__account-header {
+  padding: 0.5rem 1rem;
+}
+
+.navbar__account-name {
+  margin: 0;
+  font-weight: 500;
+}
+
+.navbar__account-email {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}

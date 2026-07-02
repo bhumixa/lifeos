@@ -1,0 +1,27 @@
+.stat-card {
+  height: 100%;
+}
+
+.stat-card__content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stat-card__icon {
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+  color: var(--mat-sys-primary);
+}
+
+.stat-card__value {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+}
+
+.stat-card__label {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

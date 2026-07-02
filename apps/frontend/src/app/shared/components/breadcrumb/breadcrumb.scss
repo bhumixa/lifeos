@@ -1,0 +1,24 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: var(--mat-sys-body-medium);
+}
+
+.breadcrumb__link {
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.breadcrumb__separator {
+  color: var(--mat-sys-outline);
+}
+
+.breadcrumb__current {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+}

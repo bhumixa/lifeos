@@ -1,0 +1,47 @@
+<mat-toolbar class="navbar">
+  <button type="button" mat-icon-button aria-label="Toggle navigation" (click)="menuToggled.emit()">
+    <mat-icon>menu</mat-icon>
+  </button>
+
+  <app-breadcrumb class="navbar__breadcrumb" />
+
+  <span class="navbar__spacer"></span>
+
+  <button
+    type="button"
+    mat-icon-button
+    aria-label="Toggle dark mode"
+    matTooltip="Toggle dark mode"
+    (click)="themeService.toggle()"
+  >
+    <mat-icon>dark_mode</mat-icon>
+  </button>
+
+  <button type="button" mat-icon-button aria-label="Notifications" [matMenuTriggerFor]="notificationsMenu">
+    <mat-icon>notifications</mat-icon>
+  </button>
+  <mat-menu #notificationsMenu="matMenu">
+    <div class="navbar__empty-menu">No notifications yet.</div>
+  </mat-menu>
+
+  <button type="button" mat-icon-button aria-label="Account menu" [matMenuTriggerFor]="accountMenu">
+    <mat-icon>account_circle</mat-icon>
+  </button>
+  <mat-menu #accountMenu="matMenu">
+    @if (user(); as currentUser) {
+      <div class="navbar__account-header">
+        <p class="navbar__account-name">{{ currentUser.name }}</p>
+        <p class="navbar__account-email">{{ currentUser.email }}</p>
+      </div>
+      <mat-divider />
+    }
+    <button type="button" mat-menu-item routerLink="/settings">
+      <mat-icon>settings</mat-icon>
+      <span>Settings</span>
+    </button>
+    <button type="button" mat-menu-item (click)="logout()">
+      <mat-icon>logout</mat-icon>
+      <span>Log out</span>
+    </button>
+  </mat-menu>
+</mat-toolbar>

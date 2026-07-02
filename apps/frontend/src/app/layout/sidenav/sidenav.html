@@ -1,0 +1,18 @@
+<mat-nav-list class="sidenav-list">
+  @for (item of navItems; track item.route) {
+    <a
+      mat-list-item
+      class="sidenav-list__item"
+      [routerLink]="item.route"
+      routerLinkActive="sidenav-list__item--active"
+      [matTooltip]="collapsed() ? item.label : ''"
+      matTooltipPosition="right"
+      (click)="navigated.emit()"
+    >
+      <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+      @if (!collapsed()) {
+        <span matListItemTitle>{{ item.label }}</span>
+      }
+    </a>
+  }
+</mat-nav-list>

@@ -1,0 +1,30 @@
+.shell {
+  height: 100vh;
+}
+
+.shell__sidenav {
+  width: 260px;
+  transition: width 0.2s ease;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+
+  &--collapsed {
+    width: 72px;
+  }
+}
+
+.shell__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__main {
+  flex: 1 1 auto;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .shell__main {
+    padding: 1rem;
+  }
+}

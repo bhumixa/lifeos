@@ -47,7 +47,7 @@ export class LoginPage {
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
         this.isLoading.set(false);
-        void this.router.navigate(['/home']);
+        void this.router.navigate(['/dashboard']);
       },
       error: (error: unknown) => {
         this.isLoading.set(false);

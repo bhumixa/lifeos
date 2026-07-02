@@ -1,0 +1,17 @@
+.feature-placeholder {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1rem;
+}
+
+.feature-placeholder__card {
+  max-width: 420px;
+  text-align: center;
+}
+
+.feature-placeholder__icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--mat-sys-outline);
+}

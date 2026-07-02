@@ -1,0 +1,18 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav
+    class="shell__sidenav"
+    [class.shell__sidenav--collapsed]="sidenavCollapsed()"
+    [mode]="sidenavMode()"
+    [opened]="sidenavOpened()"
+    (openedChange)="onOpenedChange($event)"
+  >
+    <app-sidenav (navigated)="onNavigated()" />
+  </mat-sidenav>
+
+  <mat-sidenav-content class="shell__content">
+    <app-navbar (menuToggled)="onMenuToggle()" />
+    <main class="shell__main">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>
