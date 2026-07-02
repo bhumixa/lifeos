@@ -1,16 +1,1 @@
-<main class="shell">
-  <h1>LifeOS AI</h1>
-  <p>Plan Better. Stay Consistent. Become Your Best Self.</p>
-
-  @if (health(); as status) {
-    <p class="status" [class.status--ok]="status.status === 'ok'">
-      API: {{ status.status }} · Database: {{ status.database }}
-    </p>
-  } @else if (healthError()) {
-    <p class="status status--error">{{ healthError() }}</p>
-  } @else {
-    <p class="status">Checking backend connection…</p>
-  }
-</main>
-
 <router-outlet />

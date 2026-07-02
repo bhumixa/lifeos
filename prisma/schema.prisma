@@ -1,9 +1,10 @@
 // LifeOS AI — Prisma schema.
 // Lives at the repo root per docs/07-folder-structure.md so it's shared, not owned by one app.
-// Milestone 1 intentionally defines only the datasource/generator — no domain models yet.
-// Models are added incrementally, one feature milestone at a time (see docs/09-roadmap.md),
-// starting with the Auth milestone's User/RefreshToken/UserSettings tables from
-// docs/06-database-design.md.
+// Models are added incrementally, one feature milestone at a time (see docs/09-roadmap.md).
+// Milestone 2 (Authentication) adds User/RefreshToken from docs/06-database-design.md.
+// UserSettings is part of the same doc's "Identity & access" block but isn't needed by any
+// Milestone 2 endpoint, so it's deferred to the milestone that actually reads/writes it rather
+// than being created unused.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,4 +14,54 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Matches docs/06-database-design.md's User.role enum exactly (STANDARD/PREMIUM/ADMIN) even
+// though Milestone 2's RBAC only branches on ADMIN vs. everyone else — PREMIUM becomes
+// meaningful once the Subscriptions module exists. Keeping the full enum now avoids a breaking
+// migration later just to add a value.
+enum Role {
+  STANDARD
+  PREMIUM
+  ADMIN
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  // Nullable because a future Google OAuth-only user (docs/06-database-design.md) has no
+  // local password. Not implemented in Milestone 2, but the schema already accommodates it.
+  passwordHash    String?
+  googleId        String?   @unique
+  name            String
+  avatarUrl       String?
+  role            Role      @default(STANDARD)
+  timezone        String    @default("UTC")
+  locale          String    @default("en")
+  emailVerifiedAt DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // bcrypt hash of the token's random secret half — never the raw token. See
+  // AuthService's selector/verifier scheme for why `id` doubles as the lookup key.
+  tokenHash  String
+  deviceInfo String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

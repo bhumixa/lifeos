@@ -20,6 +20,10 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    // Without this, TS auto-includes every package under node_modules/@types reachable from the
+    // workspace root — including @types/jasmine (hoisted from apps/frontend), whose conflicting
+    // global `expect` silently shadows @types/jest's and breaks `.rejects`/`.resolves` typing.
+    "types": ["node", "jest"]
   }
 }

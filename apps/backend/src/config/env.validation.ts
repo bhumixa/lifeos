@@ -12,6 +12,13 @@ export const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   FRONTEND_URL: z.string().url().default('http://localhost:4200'),
+
+  // Auth (Milestone 2). Two separate secrets so a leaked access-token secret can't be used to
+  // mint refresh tokens and vice versa.
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
