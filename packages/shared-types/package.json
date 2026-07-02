@@ -1,0 +1,16 @@
+{
+  "name": "@lifeos/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript types and DTOs shared between the LifeOS AI frontend and backend.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}
