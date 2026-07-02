@@ -2,10 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 
 /**
- * Every non-auth route renders inside layout/shell/shell.ts and uses the shared
- * FeaturePlaceholder component until its real feature module is built (see docs/09-roadmap.md
- * for the phase each one belongs to). `data.breadcrumb`/`data.icon` feed both the sidenav
- * (layout/sidenav/nav-items.ts) and BreadcrumbService — keep labels in sync with nav-items.ts.
+ * Every non-auth route renders inside layout/shell/shell.ts. Sections whose feature module
+ * hasn't been built yet (see docs/09-roadmap.md for the phase each one belongs to) use the
+ * shared FeaturePlaceholder component; Tasks (Milestone 4) is the first to have a real feature
+ * module, lazy-loaded via its own tasksRoutes. `data.breadcrumb`/`data.icon` feed both the
+ * sidenav (layout/sidenav/nav-items.ts) and BreadcrumbService — keep labels in sync with
+ * nav-items.ts.
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -25,9 +27,7 @@ export const routes: Routes = [
       },
       {
         path: 'tasks',
-        data: { breadcrumb: 'Tasks', icon: 'checklist' },
-        loadComponent: () =>
-          import('./shared/components/feature-placeholder/feature-placeholder').then((m) => m.FeaturePlaceholder),
+        loadChildren: () => import('./features/tasks/tasks.routes').then((m) => m.tasksRoutes),
       },
       {
         path: 'schedule',

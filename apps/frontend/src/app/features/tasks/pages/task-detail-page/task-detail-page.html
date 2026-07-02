@@ -1,0 +1,89 @@
+<section class="task-detail-page">
+  <button type="button" mat-button (click)="back()">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Tasks
+  </button>
+
+  @if (loading()) {
+    <div class="task-detail-page__skeleton">
+      <app-skeleton height="32px" width="60%" />
+      <app-skeleton height="16px" width="90%" />
+      <app-skeleton height="16px" width="40%" />
+    </div>
+  } @else if (error()) {
+    <p class="task-detail-page__error">{{ error() }}</p>
+  } @else if (task(); as current) {
+    <mat-card appearance="outlined" class="task-detail-page__card">
+      <mat-card-header>
+        <mat-card-title>{{ current.title }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="task-detail-page__badges">
+          <app-badge [label]="priorityLabels[current.priority]" [variant]="priorityVariants[current.priority]" />
+          <app-badge [label]="statusLabels[current.status]" [variant]="statusVariants[current.status]" />
+          @if (dueIndicator(); as due) {
+            <app-badge [label]="due.label" [variant]="due.variant" />
+          }
+        </div>
+
+        @if (current.description) {
+          <p class="task-detail-page__description">{{ current.description }}</p>
+        }
+
+        <dl class="task-detail-page__meta">
+          @if (current.dueDate) {
+            <div>
+              <dt>Due</dt>
+              <dd>{{ current.dueDate | date: 'medium' }}</dd>
+            </div>
+          }
+          @if (current.estimatedMinutes) {
+            <div>
+              <dt>Estimated</dt>
+              <dd>{{ current.estimatedMinutes }} min</dd>
+            </div>
+          }
+          @if (current.completedAt) {
+            <div>
+              <dt>Completed</dt>
+              <dd>{{ current.completedAt | date: 'medium' }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Created</dt>
+            <dd>{{ current.createdAt | date: 'medium' }}</dd>
+          </div>
+          <div>
+            <dt>Updated</dt>
+            <dd>{{ current.updatedAt | date: 'medium' }}</dd>
+          </div>
+        </dl>
+
+        @if (current.tags.length > 0) {
+          <div class="task-detail-page__tags">
+            @for (tag of current.tags; track tag) {
+              <app-badge [label]="tag" variant="neutral" />
+            }
+          </div>
+        }
+      </mat-card-content>
+
+      <mat-card-actions align="end">
+        @if (current.status !== 'COMPLETED') {
+          <button type="button" mat-stroked-button (click)="complete()">
+            <mat-icon>check</mat-icon>
+            Mark complete
+          </button>
+        }
+        <button type="button" mat-stroked-button (click)="edit()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button type="button" mat-stroked-button color="warn" (click)="delete()">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  }
+</section>

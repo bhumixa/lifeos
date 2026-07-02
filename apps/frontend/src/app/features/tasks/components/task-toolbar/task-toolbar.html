@@ -1,0 +1,47 @@
+<div class="task-toolbar">
+  <mat-form-field appearance="outline" class="task-toolbar__search">
+    <mat-label>Search tasks</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput [ngModel]="searchTerm" (ngModelChange)="onSearchInput($event)" placeholder="Title or description" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="task-toolbar__filter">
+    <mat-label>Status</mat-label>
+    <mat-select [ngModel]="status" (ngModelChange)="onStatusChange($event)">
+      <mat-option value="">All statuses</mat-option>
+      @for (entry of statuses; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="task-toolbar__filter">
+    <mat-label>Priority</mat-label>
+    <mat-select [ngModel]="priority" (ngModelChange)="onPriorityChange($event)">
+      <mat-option value="">All priorities</mat-option>
+      @for (entry of priorities; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="task-toolbar__filter">
+    <mat-label>Sort by</mat-label>
+    <mat-select [ngModel]="sortBy" (ngModelChange)="onSortByChange($event)">
+      <mat-option value="createdAt">Created</mat-option>
+      <mat-option value="updatedAt">Updated</mat-option>
+      <mat-option value="dueDate">Due date</mat-option>
+      <mat-option value="priority">Priority</mat-option>
+      <mat-option value="title">Title</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <button
+    type="button"
+    mat-icon-button
+    [attr.aria-label]="sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'"
+    (click)="onSortOrderToggle()"
+  >
+    <mat-icon>{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+  </button>
+</div>

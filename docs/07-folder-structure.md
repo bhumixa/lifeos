@@ -90,7 +90,8 @@ src/
 │   ├── guards/                # JwtAuthGuard, RolesGuard
 │   ├── filters/                # global exception filter
 │   ├── interceptors/           # logging, transform response
-│   └── dto/                    # base pagination/response DTOs
+│   ├── interfaces/             # AuthenticatedUser, PaginatedResult<T>
+│   └── dto/                    # PaginationQueryDto, PaginationMetaDto
 ├── config/                    # env validation (zod/joi), typed config module
 ├── database/
 │   └── prisma/                # PrismaService, PrismaModule
@@ -131,6 +132,14 @@ habits/
 ├── entities/             # (if not using Prisma types directly)
 └── habits.service.spec.ts
 ```
+
+**As implemented (Milestone 4 — `modules/tasks/`):** follows this convention with no `entities/`
+(TasksService returns the Prisma `Task` type directly — no hidden fields to map away, unlike
+`User`/`passwordHash`) and an added `tasks.controller.spec.ts` alongside the service spec.
+Frontend `features/tasks/` follows the per-feature convention above (`pages/`, `components/`,
+`services/`, `state/`) plus a `utils/` for pure display-formatting helpers (priority/status
+label+color maps, due-date-indicator logic) — small enough not to warrant `models/`, since
+`@lifeos/shared-types` already covers the API contract types.
 
 ## Root-level config
 

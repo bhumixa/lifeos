@@ -1,0 +1,87 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit task' : 'New task' }}</h2>
+
+<mat-dialog-content>
+  <form class="task-form" [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="task-form__full">
+      <mat-label>Title</mat-label>
+      <input matInput formControlName="title" autocomplete="off" />
+      @if (form.controls.title.hasError('required') && form.controls.title.touched) {
+        <mat-error>Title is required.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="task-form__full">
+      <mat-label>Description</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+    </mat-form-field>
+
+    <div class="task-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Priority</mat-label>
+        <mat-select formControlName="priority">
+          @for (entry of priorities; track entry[0]) {
+            <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select formControlName="status">
+          @for (entry of statuses; track entry[0]) {
+            <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="task-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Due date</mat-label>
+        <input matInput [matDatepicker]="picker" formControlName="dueDate" />
+        <mat-datepicker-toggle matIconSuffix [for]="picker" />
+        <mat-datepicker #picker />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Estimated minutes</mat-label>
+        <input matInput type="number" min="0" max="1440" formControlName="estimatedMinutes" />
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="task-form__full">
+      <mat-label>Tags</mat-label>
+      <mat-chip-grid #chipGrid aria-label="Task tags">
+        @for (tag of form.controls.tags.value; track tag) {
+          <mat-chip-row (removed)="removeTag(tag)">
+            {{ tag }}
+            <button matChipRemove type="button" aria-label="Remove tag">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip-row>
+        }
+      </mat-chip-grid>
+      <input
+        placeholder="Add a tag and press enter"
+        [matChipInputFor]="chipGrid"
+        [matChipInputSeparatorKeyCodes]="tagSeparatorKeys"
+        (matChipInputTokenEnd)="addTag($event)"
+      />
+    </mat-form-field>
+
+    @if (errorMessage(); as message) {
+      <p class="task-form__error" role="alert">{{ message }}</p>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" [disabled]="isSaving()" (click)="submit()">
+    @if (isSaving()) {
+      <mat-progress-spinner diameter="20" mode="indeterminate" />
+    } @else {
+      {{ isEdit ? 'Save changes' : 'Create task' }}
+    }
+  </button>
+</mat-dialog-actions>

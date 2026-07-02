@@ -1,10 +1,12 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { interval, map, startWith } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
+import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
 
 interface DashboardStat {
   label: string;
@@ -12,10 +14,9 @@ interface DashboardStat {
   icon: string;
 }
 
-// Placeholder values only — Milestone 3 builds the shell, not task/habit business logic. Real
-// numbers arrive once the Tasks/Habits/Streaks/Planner modules exist and can be queried.
-const DASHBOARD_STATS: DashboardStat[] = [
-  { label: "Today's Tasks", value: '—', icon: 'checklist' },
+// Habits/streaks/focus-time modules don't exist yet, so these stay placeholders — only the task
+// stats (wired in ngOnInit below) show real numbers as of Milestone 4.
+const PLACEHOLDER_STATS: DashboardStat[] = [
   { label: 'Habits Completed', value: '—', icon: 'repeat' },
   { label: 'Current Streak', value: '—', icon: 'local_fire_department' },
   { label: 'Focus Time', value: '—', icon: 'timer' },
@@ -23,15 +24,23 @@ const DASHBOARD_STATS: DashboardStat[] = [
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [StatCard, QuickActions, RecentActivity],
+  imports: [Skeleton, StatCard, QuickActions, RecentActivity],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
-export class DashboardPage {
+export class DashboardPage implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly dashboardTaskStats = inject(DashboardTaskStatsService);
 
   protected readonly user = this.authService.user;
-  protected readonly stats = DASHBOARD_STATS;
+  protected readonly placeholderStats = PLACEHOLDER_STATS;
+
+  protected readonly taskStatsLoading = signal(true);
+  protected readonly taskStats = signal<DashboardStat[]>([
+    { label: "Today's Tasks", value: '—', icon: 'checklist' },
+    { label: 'Upcoming Tasks', value: '—', icon: 'upcoming' },
+    { label: 'Completed Today', value: '—', icon: 'task_alt' },
+  ]);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
@@ -56,6 +65,22 @@ export class DashboardPage {
   protected readonly formattedTime = computed(() =>
     this.now().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
   );
+
+  ngOnInit(): void {
+    this.dashboardTaskStats.load().subscribe({
+      next: (stats) => {
+        this.taskStats.set([
+          { label: "Today's Tasks", value: String(stats.todayCount), icon: 'checklist' },
+          { label: 'Upcoming Tasks', value: String(stats.upcomingCount), icon: 'upcoming' },
+          { label: 'Completed Today', value: String(stats.completedTodayCount), icon: 'task_alt' },
+        ]);
+        this.taskStatsLoading.set(false);
+      },
+      // Falls back to the "—" placeholders already set above — a stats-loading failure
+      // shouldn't block the rest of the dashboard from rendering.
+      error: () => this.taskStatsLoading.set(false),
+    });
+  }
 
   private buildGreeting(hour: number): string {
     if (hour < 12) {

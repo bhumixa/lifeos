@@ -1,0 +1,26 @@
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 420px;
+  max-width: 100%;
+}
+
+.task-form__full {
+  width: 100%;
+}
+
+.task-form__row {
+  display: flex;
+  gap: 1rem;
+
+  mat-form-field {
+    flex: 1 1 0;
+  }
+}
+
+.task-form__error {
+  margin: 0 0 0.5rem;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-small);
+}

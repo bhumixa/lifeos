@@ -5,6 +5,8 @@
 // UserSettings is part of the same doc's "Identity & access" block but isn't needed by any
 // Milestone 2 endpoint, so it's deferred to the milestone that actually reads/writes it rather
 // than being created unused.
+// Milestone 4 (Task Management) adds Task, using the simplified field set given for that
+// milestone rather than the full docs/06-database-design.md shape — see the comment on Task.
 
 generator client {
   provider = "prisma-client-js"
@@ -45,6 +47,7 @@ model User {
   deletedAt       DateTime?
 
   refreshTokens RefreshToken[]
+  tasks         Task[]
 
   @@map("users")
 }
@@ -64,4 +67,49 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// Priority/status names and the field list here follow Milestone 4's brief exactly rather than
+// docs/06-database-design.md's fuller Task shape (which also has parentTaskId/category/
+// recurrenceRule and a many-to-many Tag entity). Those are deferred — not needed by any
+// Milestone 4 endpoint — rather than built unused; `tags` is a flat string array for now instead
+// of a relational Tag/TaskTag join.
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Task {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title            String
+  description      String?
+  priority         TaskPriority @default(MEDIUM)
+  status           TaskStatus   @default(TODO)
+  dueDate          DateTime?
+  estimatedMinutes Int?
+  completedAt      DateTime?
+  tags             String[]     @default([])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete, per docs/06-database-design.md's design principles (Task is named there
+  // explicitly) — DELETE /tasks/:id sets this instead of removing the row, so it stays
+  // recoverable and consistent with how the rest of the schema treats user-generated content.
+  deletedAt DateTime?
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@map("tasks")
 }

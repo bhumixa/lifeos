@@ -5,7 +5,16 @@
   </header>
 
   <div class="dashboard__stats">
-    @for (stat of stats; track stat.label) {
+    @if (taskStatsLoading()) {
+      @for (i of [0, 1, 2]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of taskStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
+    @for (stat of placeholderStats; track stat.label) {
       <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
     }
   </div>

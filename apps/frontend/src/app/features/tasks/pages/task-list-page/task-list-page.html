@@ -1,0 +1,48 @@
+<section class="task-list-page">
+  <header class="task-list-page__header">
+    <h1>Tasks</h1>
+    <button type="button" mat-flat-button color="primary" (click)="openCreateDialog()">
+      <mat-icon>add</mat-icon>
+      New Task
+    </button>
+  </header>
+
+  <app-task-toolbar (filterChanged)="onFilterChange($event)" />
+
+  @if (store.error(); as error) {
+    <div class="task-list-page__error">
+      <p>{{ error }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (store.loading() && store.tasks().length === 0) {
+    <div class="task-list-page__skeletons">
+      @for (row of skeletonRows; track $index) {
+        <app-skeleton height="88px" />
+      }
+    </div>
+  } @else if (store.isEmpty()) {
+    <app-empty-state icon="checklist" title="No tasks yet" message="Create your first task to get started.">
+      <button type="button" mat-flat-button color="primary" (click)="openCreateDialog()">New Task</button>
+    </app-empty-state>
+  } @else {
+    <div class="task-list-page__list">
+      @for (task of store.tasks(); track task.id) {
+        <app-task-card
+          [task]="task"
+          (view)="viewTask(task)"
+          (edit)="openEditDialog(task)"
+          (delete)="deleteTask(task)"
+          (toggleComplete)="toggleComplete(task)"
+        />
+      }
+    </div>
+
+    <mat-paginator
+      [length]="store.meta().total"
+      [pageSize]="store.meta().pageSize"
+      [pageIndex]="store.meta().page - 1"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)"
+    />
+  }
+</section>

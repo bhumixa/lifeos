@@ -61,7 +61,18 @@ Task
   recurrenceRule    string, nullable (RRULE format)
   completedAt       timestamp, nullable
   createdAt / updatedAt / deletedAt
+```
 
+> **As implemented (Milestone 4):** the actual `Task` model uses the simplified field set given in
+> that milestone's brief rather than the shape above — `priority` is `LOW/MEDIUM/HIGH/CRITICAL`,
+> `status` is `TODO/IN_PROGRESS/COMPLETED/CANCELLED`, and `tags` is a flat `string[]` rather than a
+> relational `Tag`/`TaskTag` join. `estimatedMinutes` was added (not in this doc) to support the
+> Dashboard's "Focus Time" concept later. `parentTaskId`, `category`, and `recurrenceRule` are
+> deferred — not needed by any Milestone 4 endpoint — rather than built unused. `deletedAt` (soft
+> delete) *was* kept, per this doc's design principle just below and because `Task` is named there
+> explicitly. See `prisma/schema.prisma`'s comment on `Task` for the same rationale in context.
+
+```
 Tag
   id                uuid PK
   userId            FK -> User

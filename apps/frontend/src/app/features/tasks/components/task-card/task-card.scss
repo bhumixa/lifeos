@@ -1,0 +1,43 @@
+.task-card__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.task-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-card__title {
+  margin: 0;
+  font-weight: 500;
+}
+
+.task-card__description {
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  color: var(--mat-sys-on-surface-variant);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-body-small);
+}
+
+.task-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.task-card--completed .task-card__title {
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: line-through;
+}
