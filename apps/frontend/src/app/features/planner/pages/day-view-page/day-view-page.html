@@ -1,0 +1,78 @@
+<div class="page">
+  @if (loading()) {
+    <app-skeleton height="48px" />
+    <app-skeleton height="500px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else {
+    <div class="header-row">
+      <app-planner-toolbar
+        [date]="day()!.date"
+        [generating]="actions.generating()"
+        (previousDay)="onPreviousDay()"
+        (nextDay)="onNextDay()"
+        (goToToday)="onGoToToday()"
+        (dateChange)="onDateChange($event)"
+        (generate)="onGenerate()"
+        (addBlock)="onAddBlock()"
+      />
+      <mat-button-toggle-group [value]="viewMode()" (change)="viewMode.set($event.value)" aria-label="View mode">
+        <mat-button-toggle value="timeline" aria-label="Timeline view">
+          <mat-icon>view_timeline</mat-icon>
+        </mat-button-toggle>
+        <mat-button-toggle value="agenda" aria-label="Agenda view">
+          <mat-icon>view_list</mat-icon>
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    @if (isEmpty()) {
+      <app-empty-state
+        icon="event_available"
+        title="Nothing planned for this day"
+        message="Generate a schedule from your tasks, routines, and habits, or add a block manually."
+      />
+    } @else if (viewMode() === 'timeline') {
+      <app-planner-timeline
+        [date]="day()!.date"
+        [blocks]="blocks()"
+        (editBlock)="onEditBlock($event)"
+        (toggleComplete)="onToggleComplete($event)"
+        (deleteBlock)="onDeleteBlock($event)"
+        (duplicateBlock)="onDuplicateBlock($event)"
+        (moveBlock)="onMoveBlock($event)"
+        (resizeBlock)="onResizeBlock($event)"
+      />
+    } @else {
+      <div class="agenda" cdkDropList (cdkDropListDropped)="onAgendaDrop($event)">
+        @for (block of agendaBlocks(); track block.id) {
+          <div class="agenda-row" cdkDrag [class.completed]="block.completed" [style.border-left-color]="blockColor(block)">
+            <mat-icon class="drag-handle" cdkDragHandle>drag_indicator</mat-icon>
+            <mat-icon [style.color]="blockColor(block)">{{ typeIcons[block.type] }}</mat-icon>
+            <div
+              class="agenda-body"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="'Edit ' + block.title"
+              (click)="onEditBlock(block)"
+              (keydown.enter)="onEditBlock(block)"
+              (keydown.space)="onEditBlock(block)"
+            >
+              <span class="agenda-title">{{ block.title }}</span>
+              <span class="agenda-time">{{ formatTimeOfDay(block.startTime) }} – {{ formatTimeOfDay(block.endTime) }} · {{ formatDuration(block.duration) }}</span>
+            </div>
+            <button type="button" class="icon-action" (click)="onToggleComplete(block)" aria-label="Toggle complete">
+              <mat-icon>{{ block.completed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+            </button>
+            <button type="button" class="icon-action" (click)="onDuplicateBlock(block)" aria-label="Duplicate">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            <button type="button" class="icon-action" (click)="onDeleteBlock(block)" aria-label="Delete">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

@@ -390,7 +390,8 @@ export class HabitsService {
         .filter((log) => log.date >= window.start && log.date < window.end)
         .reduce((sum, log) => sum + log.completedCount, 0);
       const todayCount =
-        habitLogs.find((log) => log.date.getTime() === today.getTime())?.completedCount ?? 0;
+        habitLogs.find((log) => log.date.getTime() === today.getTime())
+          ?.completedCount ?? 0;
 
       return {
         id: habit.id,

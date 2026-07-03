@@ -1,0 +1,7 @@
+@if (visible()) {
+  <div class="now-line" [style.top.px]="top()">
+    <span class="now-dot"></span>
+    <span class="now-label">{{ label() }}</span>
+    <div class="now-rule"></div>
+  </div>
+}

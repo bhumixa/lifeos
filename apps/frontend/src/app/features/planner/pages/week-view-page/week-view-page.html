@@ -1,0 +1,47 @@
+<div class="page">
+  <div class="header">
+    <div class="nav">
+      <button mat-icon-button aria-label="Previous week" (click)="previousWeek()">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="label">{{ weekLabel() }}</span>
+      <button mat-icon-button aria-label="Next week" (click)="nextWeek()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button mat-stroked-button (click)="thisWeek()">This Week</button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="420px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else {
+    <div class="week-grid">
+      @for (cell of cells(); track cell.date) {
+        <button type="button" class="day-cell" [class.today]="cell.isToday" (click)="openDay(cell.date)">
+          <div class="day-header">
+            <span class="day-label">{{ cell.dayLabel }}</span>
+            <span class="day-number">{{ cell.dayNumber }}</span>
+          </div>
+
+          @if (cell.day.blocks.length === 0) {
+            <p class="empty">Nothing planned</p>
+          } @else {
+            <ul class="block-list">
+              @for (block of cell.day.blocks.slice(0, 4); track block.id) {
+                <li [class.completed]="block.completed">
+                  <mat-icon [style.color]="blockColor(block)">{{ typeIcons[block.type] }}</mat-icon>
+                  <span>{{ block.title }}</span>
+                </li>
+              }
+            </ul>
+            @if (cell.day.blocks.length > 4) {
+              <p class="more">+{{ cell.day.blocks.length - 4 }} more</p>
+            }
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

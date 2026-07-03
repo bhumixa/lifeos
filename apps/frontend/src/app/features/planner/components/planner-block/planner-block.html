@@ -1,0 +1,46 @@
+<div
+  class="block"
+  cdkDrag
+  cdkDragLockAxis="y"
+  [cdkDragBoundary]="dragBoundary()"
+  [cdkDragDisabled]="block().completed"
+  (cdkDragEnded)="onDragEnded($event)"
+  [style.top.px]="top()"
+  [style.height.px]="height()"
+  [style.border-left-color]="color()"
+  [class.completed]="block().completed"
+  [class.conflict]="hasConflict()"
+  role="button"
+  tabindex="0"
+  [attr.aria-label]="'Edit ' + block().title"
+  (click)="onClick()"
+  (keydown.enter)="onClick()"
+  (keydown.space)="onClick()"
+>
+  <div class="content">
+    <div class="headline">
+      <mat-icon [style.color]="color()">{{ icon() }}</mat-icon>
+      <span class="title">{{ block().title }}</span>
+    </div>
+    <span class="time">{{ timeLabel() }} · {{ durationLabel() }}</span>
+  </div>
+
+  <div class="actions">
+    <button
+      type="button"
+      class="icon-action"
+      [attr.aria-label]="block().completed ? 'Mark incomplete' : 'Mark complete'"
+      (click)="onToggleComplete($event)"
+    >
+      <mat-icon>{{ block().completed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+    </button>
+    <button type="button" class="icon-action" aria-label="Duplicate block" (click)="onDuplicate($event)">
+      <mat-icon>content_copy</mat-icon>
+    </button>
+    <button type="button" class="icon-action" aria-label="Delete block" (click)="onDelete($event)">
+      <mat-icon>delete_outline</mat-icon>
+    </button>
+  </div>
+
+  <div class="resize-handle" (pointerdown)="onResizeStart($event)"></div>
+</div>

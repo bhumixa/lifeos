@@ -5,6 +5,7 @@ import { PrismaModule } from './database/prisma/prisma.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { HabitsModule } from './modules/habits/habits.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { PlannerModule } from './modules/planner/planner.module.js';
 import { RoutinesModule } from './modules/routines/routines.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module.js';
     TasksModule,
     RoutinesModule,
     HabitsModule,
+    PlannerModule,
   ],
 })
 export class AppModule {}

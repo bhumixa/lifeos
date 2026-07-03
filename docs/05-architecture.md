@@ -52,7 +52,7 @@
 
 One NestJS deployable (plus a worker process sharing the same codebase and Prisma client) with strict module boundaries:
 
-`auth`, `users`, `tasks`, `routines` (Morning/Evening/Custom routine templates — added in Milestone 5, see docs/06-database-design.md's note on Routine), `planner` (schedule blocks/templates), `habits` (Habit/HabitLog — added in Milestone 6, see docs/06-database-design.md's note on Habit), `streaks`, `journal`, `goals`, `calendar`, `notifications`, `ai-coach`, `analytics`, `gamification`, `subscriptions`, `admin`.
+`auth`, `users`, `tasks`, `routines` (Morning/Evening/Custom routine templates — added in Milestone 5, see docs/06-database-design.md's note on Routine), `habits` (Habit/HabitLog — added in Milestone 6, see docs/06-database-design.md's note on Habit), `planner` (PlannerDay/PlannerBlock — added in Milestone 7, see docs/06-database-design.md's note on PlannerDay), `streaks`, `journal`, `goals`, `calendar`, `notifications`, `ai-coach`, `analytics`, `gamification`, `subscriptions`, `admin`.
 
 **Why not microservices at MVP:** the product's modules are highly relational (a completed task affects streaks, which affects XP, which affects badges, which affects the dashboard) — splitting these into separate services now would mean distributed transactions and network calls for what are currently simple in-process operations. Extract a service only when a concrete scaling or team-ownership need appears (the AI-coach module, being the most latency/cost-sensitive, is the most plausible first candidate to extract later).
 
@@ -73,6 +73,27 @@ TaskCompletedEvent → streaks.service (update streak)
 ```
 
 This keeps `tasks` module ignorant of streaks/gamification (SOLID's dependency inversion), and makes each side effect independently testable. If any of these steps later need to be async/expensive, converting the listener to enqueue a BullMQ job is a small, localized change.
+
+**Milestone 7's Planner module doesn't use this pattern, on purpose.** `EventEmitter2` still isn't
+installed anywhere in the codebase — the pattern above describes future async *side effects*
+(module A's write triggers module B's write), which Planner doesn't have: `POST /planner/generate`
+needs a synchronous *read* of current Task/Routine/Habit state to build a schedule, not a reaction
+to one of them changing. It gets that by importing `TasksModule`/`RoutinesModule`/`HabitsModule`
+and injecting their exported services directly — the same "reuse services" rule this doc states
+elsewhere, just applied to a read instead of a write. `EventEmitter2` remains the right tool for
+whichever future module first needs an actual write-triggers-write side effect (Streaks reacting
+to `HabitLog` changes is still the most likely first candidate — see docs/09-roadmap.md).
+
+**Per-user timezone handling also starts here, for the first time.** `User.timezone` has existed
+since Milestone 2 but nothing consumed it until Planner — Habit/Routine's own period/window logic
+runs in server-local (effectively UTC) time (see their schema comments). `POST /planner/generate`
+and `GET /planner/today` need "what day/instant is it for this user" to be genuinely
+timezone-aware, since a naive UTC cutoff mis-schedules a user's day by their UTC offset. This is
+done with `Intl.DateTimeFormat` (`modules/planner/utils/timezone.util.ts`) rather than adding a
+date-library dependency (date-fns-tz, luxon) — the two operations Planner needs ("what's today in
+zone X" and "what UTC instant is 9am local on this date") are narrow enough that the built-in
+IANA-tz-aware `Intl` API covers them, verified against both of 2026's America/New_York DST
+transitions in `timezone.util.spec.ts`.
 
 ## Background processing (BullMQ + Redis)
 

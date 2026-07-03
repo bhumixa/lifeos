@@ -64,9 +64,10 @@ src/
 **Deviations from the plan above, made during implementation:**
 - `core/interceptors/` was folded into `core/auth/` — the only interceptor built so far (attaching/refreshing the access token) is inherently auth-specific, not a generic cross-cutting concern. A true cross-cutting interceptor (e.g. a future global error-toast) would still get its own `core/interceptors/`.
 - `core/layout/` was added (not in the original plan) once shell-wide state (sidenav collapse, mobile drawer, breadcrumbs) needed a home distinct from `core/services/`'s generic API clients.
-- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Routines, and Habits have since been built; Schedule, Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 6) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
+- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Routines, Habits, and Schedule have since been built; Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 7) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
 - **Milestone 5 (Routines)** added a nav item (`Routines`, in `layout/sidenav/nav-items.ts`) that wasn't part of the original 8-item nav list from Milestone 3 — the module wasn't planned for at that point. Its `features/routines/` follows the per-feature convention below, plus a `components/routine-step-form-dialog/` (add/edit a single step — presentation-only, no API calls of its own) alongside the list/detail/editor pages.
 - **Milestone 6 (Habits)** reused the `Habits` nav item that was already in Milestone 3's original list (unlike Routines, no nav change was needed). `features/habits/` follows the per-feature convention below with four pages (list/detail/today/history — see the backend section's note on `modules/habits/` for why "today" and "history" are dedicated endpoints rather than client-side filters) and six new reusable components (`habit-card`, `habit-progress-ring`, `habit-calendar-heatmap`, `habit-completion-button`, `habit-statistics-card`, `habit-filter-panel`); a seventh from the brief, "Habit Empty State", is deliberately *not* a new component — it reuses `shared/components/empty-state/empty-state`, per this milestone's explicit "do not duplicate code" instruction, since Task/Routine already established that shared component as the presentational empty-state pattern.
+- **Milestone 7 (Daily Planner)** also reused an existing nav item — `Schedule`, already in Milestone 3's original list pointing at the placeholder — rather than adding a new `Planner` one, so `features/planner/`'s routes mount at the pre-existing `/schedule` URL. Its three pages (Planner Dashboard, Day View, Week View) and nine components go beyond the per-feature convention below with a `state/` `PlannerStore` (one currently-viewed day, not a list) and a `services/planner-block-actions.service.ts` — a second service alongside the usual thin API wrapper, holding the dialog/confirm/store/snackbar orchestration every planner-consuming page needs (Planner Dashboard, Day View, and the main app Dashboard's own planner widgets), so that logic isn't duplicated per page. The main Dashboard (`features/dashboard/`) also gained a `components/planner-timeline-card/` and `services/dashboard-planner.service.ts`, following the same "one endpoint, several derived widgets" shape `DashboardHabitStatsService` already established for `GET /habits/summary`.
 
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
@@ -169,6 +170,21 @@ page and Calendar Heatmap), not an independently addressable resource. `HabitLog
 (`POST`/`PATCH`/`DELETE /habits/:id/log`) identify the target row by date rather than by log ID —
 a habit has at most one log per date (enforced by a DB unique constraint), so the date alone is
 enough, and it keeps the frontend from having to track log IDs just to log "today."
+
+**As implemented (Milestone 7 — `modules/planner/`):** same top-level convention as the others,
+plus a `utils/` (not listed in the per-module convention below, but the same idea as the frontend
+features' own `utils/`) holding `timezone.util.ts` and `scheduler.util.ts` — pure functions kept
+framework-free on purpose so the DST/overlap/buffer logic they contain is unit-testable without
+mocking Prisma or Nest's DI, plus a small `ParseDateParamPipe` (the `:date` path-param equivalent
+of the common `ParseUUIDPipe` used for `:id` elsewhere). `PlannerService` builds its own response
+shape (`PlannerDayResponseDto`), the same reason `RoutinesService`/`HabitsService` do. This is also
+the first module to import three sibling modules' services (`TasksModule`/`RoutinesModule`/
+`HabitsModule`, each now exporting its service) rather than only touching its own tables — see
+`docs/05-architecture.md`'s note on why this is a synchronous read-composition, not the
+`EventEmitter2` side-effect pattern the architecture doc describes for future modules. The
+`jobs/`/`events/` folders this doc's original plan listed at the `src/` root remain unbuilt: they
+were speculative infrastructure for BullMQ-based background processing, which Milestone 7's
+generator doesn't need (it's a synchronous request/response operation, not a queued job).
 
 ## Root-level config
 

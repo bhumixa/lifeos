@@ -1,0 +1,6 @@
+@if (activeBreak(); as block) {
+  <div class="banner">
+    <mat-icon>coffee</mat-icon>
+    <span>On a break until {{ formatTimeOfDay(block.endTime) }} — {{ block.title }}</span>
+  </div>
+}

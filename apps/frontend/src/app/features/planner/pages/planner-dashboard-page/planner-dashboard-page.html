@@ -1,0 +1,65 @@
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Today's Plan</h1>
+      <p class="subtitle">Tasks, routines, and habits — all in one schedule.</p>
+    </div>
+    <button mat-stroked-button (click)="openDayView()">
+      <mat-icon>calendar_view_day</mat-icon>
+      Open Day View
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="stats-row">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <app-skeleton height="72px" />
+      }
+    </div>
+    <app-skeleton height="400px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else {
+    <div class="stats-row">
+      <app-stat-card
+        label="Next Activity"
+        [value]="summary().nextBlock ? summary().nextBlock!.title : 'Nothing scheduled'"
+        icon="upcoming"
+      />
+      <app-stat-card label="Remaining Time" [value]="formatDuration(summary().remainingMinutes)" icon="hourglass_bottom" />
+      <app-stat-card label="Focus Time" [value]="formatDuration(summary().focusMinutes)" icon="timer" />
+      <app-stat-card label="Completed Blocks" [value]="summary().completedCount + ' / ' + blocks().length" icon="task_alt" />
+    </div>
+
+    @if (focusBlock(); as block) {
+      <app-focus-timer [block]="block" />
+    }
+
+    <app-planner-toolbar
+      [date]="day()!.date"
+      [generating]="actions.generating()"
+      (previousDay)="onPreviousDay()"
+      (nextDay)="onNextDay()"
+      (dateChange)="onDateChange($event)"
+      (generate)="onGenerate()"
+      (addBlock)="onAddBlock()"
+    />
+
+    @if (isEmpty()) {
+      <app-empty-state icon="event_available" title="Nothing planned yet" message="Generate a schedule or add your first block.">
+        <button mat-flat-button color="primary" (click)="onAddBlock()">Add Block</button>
+      </app-empty-state>
+    } @else {
+      <app-planner-timeline
+        [date]="day()!.date"
+        [blocks]="blocks()"
+        (editBlock)="onEditBlock($event)"
+        (toggleComplete)="onToggleComplete($event)"
+        (deleteBlock)="onDeleteBlock($event)"
+        (duplicateBlock)="onDuplicateBlock($event)"
+        (moveBlock)="onMoveBlock($event)"
+        (resizeBlock)="onResizeBlock($event)"
+      />
+    }
+  }
+</div>

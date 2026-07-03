@@ -23,6 +23,15 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
+    @if (plannerLoading()) {
+      @for (i of [0, 1, 2, 3]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of plannerStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
     @for (stat of placeholderStats; track stat.label) {
       <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
     }
@@ -30,6 +39,7 @@
 
   <div class="dashboard__panels">
     <app-quick-actions />
+    <app-planner-timeline-card [blocks]="plannerBlocks()" [loading]="plannerLoading()" />
     <app-routine-summary />
     <app-habits-quick-complete />
     <app-recent-activity />

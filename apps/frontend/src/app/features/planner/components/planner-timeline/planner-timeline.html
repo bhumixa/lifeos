@@ -1,0 +1,26 @@
+<app-conflict-warning [blocks]="blocks()" />
+<app-break-indicator [blocks]="blocks()" />
+
+<div class="timeline-surface" [style.height.px]="containerHeight">
+  <app-time-grid [startHour]="startHour" [endHour]="endHour" [pixelsPerMinute]="pixelsPerMinute" />
+  <app-current-time-indicator
+    [visible]="isToday()"
+    [startHour]="startHour"
+    [pixelsPerMinute]="pixelsPerMinute"
+  />
+
+  @for (block of blocks(); track block.id) {
+    <app-planner-block
+      [block]="block"
+      [top]="topFor(block)"
+      [pixelsPerMinute]="pixelsPerMinute"
+      [hasConflict]="conflictingIds().has(block.id)"
+      (edit)="editBlock.emit($event)"
+      (toggleComplete)="toggleComplete.emit($event)"
+      (deleteBlock)="deleteBlock.emit($event)"
+      (duplicate)="duplicateBlock.emit($event)"
+      (move)="moveBlock.emit($event)"
+      (resizeBlock)="resizeBlock.emit($event)"
+    />
+  }
+</div>

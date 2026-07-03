@@ -1,0 +1,79 @@
+<h2 mat-dialog-title>{{ isEditMode ? 'Edit Block' : 'Add Block' }}</h2>
+
+<form [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content>
+    <mat-form-field appearance="outline">
+      <mat-label>Type</mat-label>
+      <mat-select formControlName="type" (selectionChange)="onTypeChange($event.value)">
+        @for (type of typeOptions; track type) {
+          <mat-option [value]="type">{{ typeLabels[type] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (selectedType() === 'TASK') {
+      <mat-form-field appearance="outline">
+        <mat-label>Link a task (optional)</mat-label>
+        <mat-select (selectionChange)="onTaskSelected($event.value)" [disabled]="loadingPickers()">
+          @for (task of openTasks(); track task.id) {
+            <mat-option [value]="task.id">{{ task.title }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    @if (selectedType() === 'HABIT') {
+      <mat-form-field appearance="outline">
+        <mat-label>Link a habit (optional)</mat-label>
+        <mat-select (selectionChange)="onHabitSelected($event.value)" [disabled]="loadingPickers()">
+          @for (habit of openHabits(); track habit.id) {
+            <mat-option [value]="habit.id">{{ habit.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Title</mat-label>
+      <input matInput formControlName="title" maxlength="200" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Description</mat-label>
+      <textarea matInput formControlName="description" rows="2"></textarea>
+    </mat-form-field>
+
+    <div class="time-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Start time</mat-label>
+        <input matInput type="time" formControlName="startTime" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>End time</mat-label>
+        <input matInput type="time" formControlName="endTime" />
+        @if (form.controls.endTime.hasError('range')) {
+          <mat-error>End time must be after start time</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <div class="color-row">
+      @for (color of colorOptions; track color) {
+        <button
+          type="button"
+          class="swatch"
+          [style.background]="color"
+          [class.selected]="form.controls.color.value === color"
+          [attr.aria-label]="'Choose color ' + color"
+          (click)="form.patchValue({ color })"
+        ></button>
+      }
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button type="button" mat-button (click)="cancel()">Cancel</button>
+    <button type="submit" mat-flat-button color="primary">{{ isEditMode ? 'Save' : 'Add' }}</button>
+  </mat-dialog-actions>
+</form>

@@ -1,0 +1,40 @@
+.timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+
+.ring {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(var(--mat-sys-primary, #3f51b5) calc(var(--progress) * 1%), var(--mat-sys-surface-variant, #eee) 0);
+}
+
+.time {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: var(--mat-sys-surface, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.label {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant, rgba(0, 0, 0, 0.6));
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}

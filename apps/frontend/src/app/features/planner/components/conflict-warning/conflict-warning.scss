@@ -1,0 +1,25 @@
+.warning {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mat-sys-error, #e53935) 10%, transparent);
+  color: var(--mat-sys-error, #e53935);
+  margin-bottom: 12px;
+
+  mat-icon {
+    flex-shrink: 0;
+  }
+}
+
+.headline {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}

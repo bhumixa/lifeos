@@ -1,0 +1,42 @@
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 360px;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.time-row {
+  display: flex;
+  gap: 12px;
+
+  mat-form-field {
+    flex: 1;
+  }
+}
+
+.color-row {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+
+  &.selected {
+    border-color: var(--mat-sys-on-surface, #000);
+  }
+}

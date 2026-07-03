@@ -221,14 +221,63 @@ Streak
 >   same "computed, not persisted" choice Milestone 5 made for Routine's completion %, and
 >   consistent with this doc's own principle that `Streak` is a derived rollup over the log, never
 >   a source of truth. Actual streak *tracking* — `Streak`, `currentStreak`/`longestStreak`,
->   freeze/recovery — is explicitly out of scope for Milestone 6 (deferred to Milestone 7's Streak
->   Engine, per that milestone's brief).
+>   freeze/recovery — remains explicitly out of scope; Milestone 7 turned out to be the Daily
+>   Planner rather than the Streak Engine this note originally assumed it would be — a Streak
+>   Engine milestone is still unscheduled as of Milestone 7 (see docs/09-roadmap.md).
 > - **`(userId, name)` uniqueness** backs "validate duplicate habit names per user": `HabitsService`
 >   checks it first (a friendly 409) with the DB constraint as a last-resort backstop against a
 >   create/create race.
 > - **`(habitId, date)` uniqueness** backs "prevent multiple logs for the same habit/date" at the
 >   database level — `POST /habits/:id/log` rejects a second log for a date that already has one
 >   (409, pointing at `PATCH` instead) rather than silently overwriting it.
+
+> **Added in Milestone 7 — PlannerDay/PlannerBlock (not originally in this doc):** this doc's
+> closest existing concept was `ScheduleBlock` above, but Milestone 7 asked for a day container
+> plus blocks rather than one flat table. As implemented:
+>
+> ```
+> PlannerDay
+>   id                uuid PK
+>   userId            FK -> User
+>   date              date   -- one row per (userId, date); auto-created on first GET/POST
+>   notes             string, nullable
+>   createdAt / updatedAt
+>
+> PlannerBlock
+>   id                uuid PK
+>   plannerDayId      FK -> PlannerDay
+>   type              enum(TASK, ROUTINE, HABIT, FOCUS, BREAK, CUSTOM)
+>   referenceId       string, nullable   -- Task.id / RoutineStep.id / Habit.id; no FK constraint
+>   title             string
+>   description       string, nullable
+>   startTime / endTime  timestamp
+>   duration          int   -- minutes; always derived from (endTime - startTime), never trusted
+>                            -- from the client (see docs/05-architecture.md's database rules)
+>   color             string, nullable
+>   completed         boolean, default false
+>   order             int   -- manual sort key, independent of chronological startTime
+>   createdAt / updatedAt
+> ```
+>
+> - **Two models, not one**, unlike `ScheduleBlock`'s flat shape: every Planner endpoint operates
+>   "for this user, on this date" first and block-by-block second, and `notes` belongs to the day
+>   itself, not any one block. `ScheduleBlock` was never implemented, so there's no migration
+>   concern in diverging from that original shape.
+> - **`referenceId` is polymorphic-by-reference**, the same pattern `ScheduleBlock`'s
+>   `sourceType`/`sourceId` already specified — null for FOCUS/BREAK/CUSTOM, which have no backing
+>   source record.
+> - **No `isAiGenerated` flag** (unlike `ScheduleBlock`): the milestone brief is explicit that
+>   generation is deterministic, not AI-driven, so that flag has no meaning here. The existing
+>   `type` column already distinguishes generator-owned blocks (TASK/ROUTINE/HABIT — replaced on
+>   every `POST /planner/generate`) from user-authored ones (FOCUS/BREAK/CUSTOM — never touched by
+>   generation), so no separate column was added to track that distinction either.
+> - **Hard delete on PlannerBlock, like RoutineStep**: a block is disposable scheduling, not the
+>   irreplaceable content the soft-delete principle protects. `PlannerDay` has no delete endpoint
+>   at all — it accumulates as a per-date historical record, the same role `DailyStat` plays.
+> - **`(userId, date)` uniqueness on PlannerDay** backs "auto-create on first access": `GET
+>   /planner/today` and `GET /planner/:date` find-or-create against this constraint rather than
+>   requiring a separate provisioning step, the same convention `HabitLog`'s `(habitId, date)`
+>   uniqueness supports for its own upsert-like reads.
 
 ### Reflection & goals
 
@@ -359,11 +408,11 @@ AdminAuditLog
 
 - `(userId, date)` composite indexes on `HabitLog`, `JournalEntry`, `DailyStat` — the dominant query pattern is "this user's data in a date range."
 - `(userId, status)` on `Task` for the task list/dashboard queries.
-- `(userId, startTime)` on `ScheduleBlock` for calendar range queries.
-- Unique constraints: `User.email`, `User.googleId`, `(HabitId, date)` on `HabitLog`, `(userId, date)` on `DailyStat`, `(userId, badgeId)` on `UserBadge`.
+- `(userId, startTime)` on `ScheduleBlock` for calendar range queries. As implemented (Milestone 7): `PlannerDay` carries `(userId, date)` (unique + indexed) instead, since every Planner query starts from "this user's day," and `PlannerBlock` carries `(plannerDayId, order)` and `(plannerDayId, startTime)` for its own list/timeline ordering.
+- Unique constraints: `User.email`, `User.googleId`, `(HabitId, date)` on `HabitLog`, `(userId, date)` on `DailyStat`, `(userId, badgeId)` on `UserBadge`. As implemented: also `(userId, date)` on `PlannerDay` (Milestone 7) and `(userId, name)` on `Habit` (Milestone 6).
 
 ## Why this shape
 
 - **Streak is derived state, not the source of truth** — `HabitLog` is the ledger; `Streak` is a maintained rollup updated by the `streak-rollover` job (see architecture doc). This means streaks can always be recomputed/audited from logs if the rollup ever drifts.
-- **`ScheduleBlock` is polymorphic-by-reference** (`sourceType`/`sourceId`) rather than duplicating task/habit data into the calendar — a completed task and its calendar block stay in sync automatically, and the calendar can render tasks, habits, and free-standing events uniformly.
+- **`ScheduleBlock` is polymorphic-by-reference** (`sourceType`/`sourceId`) rather than duplicating task/habit data into the calendar — a completed task and its calendar block stay in sync automatically, and the calendar can render tasks, habits, and free-standing events uniformly. As implemented (Milestone 7): `PlannerBlock.referenceId` carries this forward exactly, split into `PlannerDay`/`PlannerBlock` — see the note on PlannerDay above.
 - **`AiInteraction` doubles as cost telemetry and the "AI engagement rate" metric source** — no separate analytics pipeline needed for that specific success metric.

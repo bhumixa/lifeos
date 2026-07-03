@@ -6,6 +6,64 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 7 — Daily Planner & Time Blocking (2026-07-03)
+
+Production-ready Daily Planner: backend `PlannerDay`/`PlannerBlock` module (8 endpoints, including
+a deterministic — no AI — schedule generator) and a full frontend feature (Planner Dashboard, Day
+View with a drag-to-move/resize timeline and an Agenda list view, Week View; a Block Dialog with
+Task/Habit pickers; Focus Timer, Conflict Warning, Break Indicator, Current Time Indicator). The
+main Dashboard's Focus Time placeholder is now real, and it gained a Today's Timeline widget plus
+Next Activity/Remaining Time/Completed Blocks stat cards, all computed from one `GET
+/planner/today` call.
+
+Key decisions:
+- **Split into `PlannerDay` (a thin per-date container) + `PlannerBlock`**, rather than one flat
+  table or reusing `docs/06-database-design.md`'s `ScheduleBlock` — every endpoint operates "for
+  this user, on this date" first and block-by-block second, and `PlannerDay.notes` belongs to the
+  day, not any one block. `ScheduleBlock` itself was never implemented, so there's no migration
+  concern in choosing this shape over that one.
+- **`duration` is always derived from `startTime`/`endTime` server-side**, never trusted from the
+  client, per `docs/05-architecture.md`'s "derived values should be calculated whenever
+  practical" rule — the same principle Habit/Routine already apply to their own computed fields.
+- **Generate is idempotent, not additive**: TASK/ROUTINE/HABIT-type blocks are deleted and rebuilt
+  from current Task/Routine/Habit state on every call; FOCUS/BREAK/CUSTOM blocks are always
+  user-authored and are never touched by generation. This reuses the `type` column already on the
+  schema rather than adding a separate `isGenerated` flag.
+- **Completing a block never writes back to the Task/Habit it references** — an explicit business
+  rule from the milestone brief ("Planner should never modify Tasks or Habits automatically"), not
+  an oversight. Verified directly: `PlannerService.spec.ts`'s complete() test asserts
+  `TasksService.update`/`HabitsService.createLog` are never called.
+- **Per-user-timezone date/time handling, for the first time in this codebase.** Habit/Routine
+  predate this entirely (see their own schema comments); Planner is the first module where "what
+  day is it" and "what UTC instant is 9am" have to be computed from `User.timezone` rather than
+  server-local time — done via `Intl.DateTimeFormat`, not a new date-library dependency (see
+  `docs/05-architecture.md`'s timezone note). Property-style tests cover both DST transitions in
+  2026 (America/New_York's March 8 spring-forward and November 1 fall-back).
+- **Overlap handling is split by source**: the generator actively avoids overlapping its own
+  output (routine steps keep fixed anchor times; tasks/habits greedily fill free gaps, respecting
+  a configurable buffer), but manually-created/edited blocks are allowed to overlap — the backend
+  doesn't reject it. A pure `detectConflicts` client-side utility (covered by its own unit tests)
+  flags overlaps for the Conflict Warning banner and a highlighted outline in the Timeline, rather
+  than the backend hard-blocking a state a real calendar app has to tolerate.
+- **Drag-and-drop scope**: the Timeline supports free-position drag-to-move (vertical, 5-minute
+  snapped, via Angular CDK) and edge-handle resize (native Pointer Events — CDK has no resize
+  primitive). A separate Agenda list view reuses the exact CDK list-reorder pattern
+  `RoutineEditorPage` already established, and is what actually exercises `POST /planner/reorder`
+  — the Timeline positions blocks by time and has no use for a manual order index.
+- **`TasksModule`/`RoutinesModule`/`HabitsModule` now export their services** so `PlannerService`
+  can reuse them for the generator (today's due tasks, active routine steps, not-yet-completed
+  habits) instead of querying their tables directly — see `docs/05-architecture.md`'s "reuse
+  services" rule. A new `PlannerBlockActionsService` on the frontend centralizes the
+  dialog/confirm/store/snackbar orchestration shared by the Planner Dashboard and Day View pages,
+  for the same reason.
+- **Verification**: in addition to 174 backend and 161 frontend unit tests (all passing), the
+  running backend was exercised directly against a live Postgres database with 15 curl-driven
+  checks covering block CRUD, generate's fixed-block preservation, reorder validation, and
+  cross-user 404-not-403 security — see the Verification section of the milestone report for the
+  full list. Full in-browser UI verification wasn't possible in this environment (the sandboxed
+  macOS host blocks Playwright's downloaded Chromium via Gatekeeper); the build, lint, and full
+  test suites all pass, and manual verification steps were handed off.
+
 ## Milestone 6 — Habit Tracker (2026-07-03)
 
 Production-ready habit tracking: backend `Habit`/`HabitLog` module (11 endpoints, including

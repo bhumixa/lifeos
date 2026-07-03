@@ -13,6 +13,9 @@
 // Milestone 6 (Habit Tracker) adds Habit/HabitLog, using that milestone's simplified field set
 // (targetFrequency/targetCount instead of docs/06-database-design.md's isQuantifiable/unit, and
 // completedCount/notes on HabitLog instead of completed/value) — see the comment on Habit.
+// Milestone 7 (Daily Planner) adds PlannerDay/PlannerBlock — a new concept not named in
+// docs/06-database-design.md (the closest existing concept is ScheduleBlock); see the comment on
+// PlannerDay for why it's split into a day container + blocks rather than reusing ScheduleBlock.
 
 generator client {
   provider = "prisma-client-js"
@@ -56,6 +59,7 @@ model User {
   tasks         Task[]
   routines      Routine[]
   habits        Habit[]
+  plannerDays   PlannerDay[]
 
   @@map("users")
 }
@@ -234,4 +238,81 @@ model HabitLog {
   @@unique([habitId, date])
   @@index([habitId, date])
   @@map("habit_logs")
+}
+
+// A PlannerDay is a thin per-(user, date) container; PlannerBlock rows carry the actual
+// schedule. Split into two models — rather than one flat table, or reusing
+// docs/06-database-design.md's ScheduleBlock — because the Planner's own fields (`notes`) belong
+// to the *day*, not any one block, and every planner endpoint operates "for this user, on this
+// date" first and block-by-block second. `ScheduleBlock` was never implemented (Planner is its
+// first real implementation), so there's no migration/back-compat concern in choosing this shape
+// over that one.
+model PlannerDay {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Date-only, like HabitLog.date — a planner day has no time-of-day of its own.
+  date  DateTime @db.Date
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blocks PlannerBlock[]
+
+  // A user has at most one PlannerDay per date — GET /planner/today and GET /planner/:date
+  // find-or-create against this constraint rather than requiring a separate provisioning step.
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("planner_days")
+}
+
+// TASK/ROUTINE/HABIT blocks are the ones POST /planner/generate creates and may replace on
+// regeneration; FOCUS/BREAK/CUSTOM are always user-authored and generation never touches them.
+// See the comment on PlannerService.generate for the full regeneration contract.
+enum PlannerBlockType {
+  TASK
+  ROUTINE
+  HABIT
+  FOCUS
+  BREAK
+  CUSTOM
+}
+
+model PlannerBlock {
+  id           String     @id @default(uuid())
+  plannerDayId String
+  plannerDay   PlannerDay @relation(fields: [plannerDayId], references: [id], onDelete: Cascade)
+
+  type PlannerBlockType
+  // Polymorphic-by-reference (Task.id / RoutineStep.id / Habit.id), the same pattern
+  // docs/06-database-design.md's ScheduleBlock uses — no FK constraint, since the referenced
+  // table depends on `type`. Null for FOCUS/BREAK/CUSTOM, which have no backing source record.
+  // Completing or deleting a PlannerBlock never writes back to the referenced Task/Habit — see
+  // the comment on PlannerService.complete for why that's a deliberate business rule, not an
+  // oversight.
+  referenceId String?
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  // Derived from (endTime - startTime) and recomputed by PlannerService on every create/update
+  // rather than trusted from the client — see docs/05-architecture.md's database rules ("derived
+  // values should be calculated whenever practical"). Stored (not computed on read) because it's
+  // the field the milestone brief names explicitly and because every list view needs it without
+  // re-deriving per row.
+  duration  Int
+  color     String?
+  completed Boolean @default(false)
+  // Manual sort key for same/overlapping-time blocks and drag-reorder — independent of
+  // chronological startTime ordering, same role RoutineStep.order plays for routines.
+  order Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([plannerDayId, order])
+  @@index([plannerDayId, startTime])
+  @@map("planner_blocks")
 }

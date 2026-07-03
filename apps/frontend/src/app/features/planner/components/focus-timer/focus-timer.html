@@ -1,0 +1,23 @@
+<div class="timer">
+  <div class="ring" [style.--progress.%]="progressPercent()">
+    <span class="time">{{ formatted() }}</span>
+  </div>
+  <p class="label">{{ block()?.title ?? 'Focus Session' }}</p>
+  <div class="actions">
+    @if (!running()) {
+      <button mat-flat-button color="primary" (click)="start()" [disabled]="remainingSeconds() === 0">
+        <mat-icon>play_arrow</mat-icon>
+        Start
+      </button>
+    } @else {
+      <button mat-stroked-button (click)="pause()">
+        <mat-icon>pause</mat-icon>
+        Pause
+      </button>
+    }
+    <button mat-button (click)="reset()">
+      <mat-icon>refresh</mat-icon>
+      Reset
+    </button>
+  </div>
+</div>

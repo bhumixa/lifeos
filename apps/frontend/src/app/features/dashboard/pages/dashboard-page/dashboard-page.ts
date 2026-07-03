@@ -1,14 +1,19 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import type { PlannerDay } from '@lifeos/shared-types';
 import { interval, map, startWith } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
+import { formatDuration } from '../../../planner/utils/planner-display';
+import { computePlannerSummary } from '../../../planner/utils/planner-summary';
 import { HabitsQuickComplete } from '../../components/habits-quick-complete/habits-quick-complete';
+import { PlannerTimelineCard } from '../../components/planner-timeline-card/planner-timeline-card';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
+import { DashboardPlannerService } from '../../services/dashboard-planner.service';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
 
 interface DashboardStat {
@@ -18,16 +23,21 @@ interface DashboardStat {
 }
 
 // Best Habit Streak is explicitly deferred to Milestone 7's Streak Engine — nothing computes it
-// yet, so it stays a placeholder even though Habits' own three cards are now real (Milestone 6).
-// Focus Time has no owning module yet either.
-const PLACEHOLDER_STATS: DashboardStat[] = [
-  { label: 'Best Habit Streak', value: '—', icon: 'local_fire_department' },
-  { label: 'Focus Time', value: '—', icon: 'timer' },
-];
+// yet, so it stays a placeholder even though Habits' own three cards (Milestone 6) and the
+// Planner's four cards (Milestone 7) are now real.
+const PLACEHOLDER_STATS: DashboardStat[] = [{ label: 'Best Habit Streak', value: '—', icon: 'local_fire_department' }];
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [Skeleton, StatCard, QuickActions, RoutineSummaryCard, HabitsQuickComplete, RecentActivity],
+  imports: [
+    Skeleton,
+    StatCard,
+    QuickActions,
+    RoutineSummaryCard,
+    HabitsQuickComplete,
+    PlannerTimelineCard,
+    RecentActivity,
+  ],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
@@ -35,6 +45,7 @@ export class DashboardPage implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly dashboardTaskStats = inject(DashboardTaskStatsService);
   private readonly dashboardHabitStats = inject(DashboardHabitStatsService);
+  private readonly dashboardPlanner = inject(DashboardPlannerService);
 
   protected readonly user = this.authService.user;
   protected readonly placeholderStats = PLACEHOLDER_STATS;
@@ -53,6 +64,10 @@ export class DashboardPage implements OnInit {
     { label: 'Completion Percentage', value: '—', icon: 'percent' },
   ]);
 
+  protected readonly plannerLoading = signal(true);
+  private readonly plannerDay = signal<PlannerDay | null>(null);
+  protected readonly plannerBlocks = computed(() => this.plannerDay()?.blocks ?? []);
+
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
   private readonly now = toSignal(
@@ -62,6 +77,22 @@ export class DashboardPage implements OnInit {
     ),
     { initialValue: new Date() },
   );
+
+  // Depends on `now()`, unlike taskStats/habitStats — Next Activity/Remaining Time are only
+  // meaningful relative to the current moment, not a value computed once at page load.
+  protected readonly plannerStats = computed<DashboardStat[]>(() => {
+    const summary = computePlannerSummary(this.plannerBlocks(), this.now());
+    return [
+      { label: 'Next Activity', value: summary.nextBlock?.title ?? 'Nothing scheduled', icon: 'upcoming' },
+      { label: 'Remaining Time', value: formatDuration(summary.remainingMinutes), icon: 'hourglass_bottom' },
+      { label: 'Focus Time', value: formatDuration(summary.focusMinutes), icon: 'timer' },
+      {
+        label: 'Completed Blocks',
+        value: `${summary.completedCount} / ${this.plannerBlocks().length}`,
+        icon: 'task_alt',
+      },
+    ];
+  });
 
   protected readonly welcomeMessage = computed(() => {
     const greeting = this.buildGreeting(this.now().getHours());
@@ -102,6 +133,14 @@ export class DashboardPage implements OnInit {
         this.habitStatsLoading.set(false);
       },
       error: () => this.habitStatsLoading.set(false),
+    });
+
+    this.dashboardPlanner.load().subscribe({
+      next: (day) => {
+        this.plannerDay.set(day);
+        this.plannerLoading.set(false);
+      },
+      error: () => this.plannerLoading.set(false),
     });
   }
 

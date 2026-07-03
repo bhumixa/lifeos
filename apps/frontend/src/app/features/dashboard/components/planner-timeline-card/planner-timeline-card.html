@@ -1,0 +1,25 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Today's Timeline</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="timeline-card">
+    @if (loading()) {
+      <p class="hint">Loading…</p>
+    } @else if (sortedBlocks().length === 0) {
+      <p class="hint">Nothing planned yet today.</p>
+    } @else {
+      <ul class="list">
+        @for (block of sortedBlocks(); track block.id) {
+          <li [class.completed]="block.completed">
+            <mat-icon [style.color]="blockColor(block)">{{ typeIcons[block.type] }}</mat-icon>
+            <span class="time">{{ formatTimeOfDay(block.startTime) }}</span>
+            <span class="title">{{ block.title }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </mat-card-content>
+  <mat-card-actions align="end">
+    <a mat-button routerLink="/schedule/day">Open Day View</a>
+  </mat-card-actions>
+</mat-card>

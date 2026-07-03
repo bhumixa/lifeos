@@ -1,0 +1,13 @@
+@if (conflicting().length > 0) {
+  <div class="warning">
+    <mat-icon>warning</mat-icon>
+    <div class="body">
+      <p class="headline">{{ conflicting().length }} blocks have overlapping times</p>
+      <ul>
+        @for (block of conflicting(); track block.id) {
+          <li>{{ block.title }} — {{ formatTimeOfDay(block.startTime) }}</li>
+        }
+      </ul>
+    </div>
+  </div>
+}

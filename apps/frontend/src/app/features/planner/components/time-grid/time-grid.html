@@ -1,0 +1,8 @@
+<div class="grid">
+  @for (hour of hours(); track hour) {
+    <div class="hour-line" [style.top.px]="topFor(hour)">
+      <span class="hour-label">{{ label(hour) }}</span>
+      <div class="rule"></div>
+    </div>
+  }
+</div>

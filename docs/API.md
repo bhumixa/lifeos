@@ -74,7 +74,32 @@ exists but belongs to someone else returns `404`, not `403` (see `docs/05-archit
 | PATCH | `/habits/:id/log` | Update the log for a date (defaults to today; 404 if none exists). |
 | DELETE | `/habits/:id/log` | Remove the log for a date (defaults to today; 404 if none exists). |
 
+## Planner (Milestone 7)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/planner/today` | Today's plan (in the user's own timezone), auto-creating an empty day on first access. |
+| GET | `/planner/:date` | One day's plan by `"YYYY-MM-DD"`, auto-creating an empty day on first access. |
+| POST | `/planner/block` | Create a block (defaults `date` to today; `duration` is always derived from `startTime`/`endTime`, never trusted from the client). Returns the whole day. |
+| PATCH | `/planner/block/:id` | Update a block (a block's `date` can't change — create a new one instead). Returns the whole day. |
+| DELETE | `/planner/block/:id` | Hard-delete a block. |
+| POST | `/planner/generate` | Deterministic (no AI) regeneration from current Task/Routine/Habit data — see the note below. Returns the day plus `unscheduledTaskIds`/`unscheduledHabitIds` for anything that didn't fit. |
+| POST | `/planner/reorder` | Reorder a day's blocks — body is `{ date, blockIds }`, exactly that date's current block IDs in the desired order. |
+| POST | `/planner/complete` | Toggle a block's own `completed` flag. Never writes to the Task/Habit a TASK/HABIT block references — see the note below. |
+
+**Generate is idempotent, not additive.** TASK/ROUTINE/HABIT-type blocks are the ones this
+endpoint owns end-to-end — every call deletes and rebuilds exactly those from current source data.
+FOCUS/BREAK/CUSTOM blocks are always user-authored; generation treats them as fixed obstacles and
+never deletes, moves, or overlaps them. Placement is greedy and priority-ordered (routines at
+their fixed anchor times first, then tasks by priority, then not-yet-completed-today habits),
+within a fixed `07:00`–`22:00` window and a configurable buffer — see `PlannerService.generate` and
+`docs/05-architecture.md`.
+
+**Completing a block never touches the resource it references.** This is a deliberate business
+rule, not an oversight: a TASK block's `completed` flag is independent of the underlying Task's
+`status`. A user who wants the Task itself marked done does so from the Tasks feature directly.
+
 ## Not yet implemented
 
-Planner, Streaks, Journal, Goals, Calendar, Notifications, AI Coach, Analytics, Gamification,
-Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
+Streaks, Journal, Goals, Calendar, Notifications, AI Coach, Analytics, Gamification, Subscriptions,
+Admin — see `docs/09-roadmap.md` for milestone sequencing.

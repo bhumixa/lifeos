@@ -1,0 +1,31 @@
+<div class="toolbar">
+  <div class="nav">
+    <button mat-icon-button aria-label="Previous day" (click)="previousDay.emit()">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+
+    <div class="date-picker">
+      <span class="date-label">{{ formattedDate() }}</span>
+      <input type="date" [value]="date()" (change)="onDateInput($event)" aria-label="Choose date" />
+    </div>
+
+    <button mat-icon-button aria-label="Next day" (click)="nextDay.emit()">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+
+    @if (!isToday()) {
+      <button mat-stroked-button (click)="goToToday.emit()">Today</button>
+    }
+  </div>
+
+  <div class="actions">
+    <button mat-stroked-button (click)="generate.emit()" [disabled]="generating()">
+      <mat-icon>auto_awesome_motion</mat-icon>
+      {{ generating() ? 'Generating…' : 'Generate' }}
+    </button>
+    <button mat-flat-button color="primary" (click)="addBlock.emit()">
+      <mat-icon>add</mat-icon>
+      Add Block
+    </button>
+  </div>
+</div>

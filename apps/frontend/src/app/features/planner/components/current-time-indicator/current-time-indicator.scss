@@ -1,0 +1,30 @@
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.now-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mat-sys-error, #e53935);
+  margin-left: 52px;
+}
+
+.now-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mat-sys-error, #e53935);
+}
+
+.now-rule {
+  flex: 1;
+  height: 2px;
+  background: var(--mat-sys-error, #e53935);
+}
