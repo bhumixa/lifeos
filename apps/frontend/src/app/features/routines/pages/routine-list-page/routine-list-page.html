@@ -1,0 +1,39 @@
+<section class="routine-list-page">
+  <header class="routine-list-page__header">
+    <h1>Routines</h1>
+    <button type="button" mat-flat-button color="primary" (click)="createRoutine()">
+      <mat-icon>add</mat-icon>
+      New Routine
+    </button>
+  </header>
+
+  @if (store.error(); as error) {
+    <div class="routine-list-page__error">
+      <p>{{ error }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (store.loading() && store.routines().length === 0) {
+    <div class="routine-list-page__skeletons">
+      @for (row of skeletonRows; track $index) {
+        <app-skeleton height="76px" />
+      }
+    </div>
+  } @else if (store.isEmpty()) {
+    <app-empty-state icon="wb_sunny" title="No routines yet" message="Create a Morning or Evening routine to get started.">
+      <button type="button" mat-flat-button color="primary" (click)="createRoutine()">New Routine</button>
+    </app-empty-state>
+  } @else {
+    <div class="routine-list-page__list">
+      @for (routine of store.routines(); track routine.id) {
+        <app-routine-card
+          [routine]="routine"
+          (view)="viewRoutine(routine)"
+          (edit)="editRoutine(routine)"
+          (duplicate)="duplicateRoutine(routine)"
+          (delete)="deleteRoutine(routine)"
+          (toggleActive)="toggleActive(routine)"
+        />
+      }
+    </div>
+  }
+</section>

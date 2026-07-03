@@ -1,0 +1,39 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit step' : 'Add step' }}</h2>
+
+<mat-dialog-content>
+  <form class="step-form" [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="step-form__full">
+      <mat-label>Title</mat-label>
+      <input matInput formControlName="title" autocomplete="off" />
+      @if (form.controls.title.hasError('required') && form.controls.title.touched) {
+        <mat-error>Title is required.</mat-error>
+      }
+    </mat-form-field>
+
+    <div class="step-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Start time</mat-label>
+        <input matInput type="time" formControlName="startTime" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Duration (minutes)</mat-label>
+        <input matInput type="number" min="1" max="480" formControlName="durationMinutes" />
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="step-form__full">
+      <mat-label>Reminder (minutes before)</mat-label>
+      <input matInput type="number" min="0" max="1440" formControlName="reminderMinutesBefore" />
+    </mat-form-field>
+
+    <mat-checkbox formControlName="isRequired">Required step</mat-checkbox>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="submit()">
+    {{ isEdit ? 'Save step' : 'Add step' }}
+  </button>
+</mat-dialog-actions>

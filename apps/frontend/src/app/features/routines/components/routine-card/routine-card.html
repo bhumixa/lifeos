@@ -1,0 +1,45 @@
+<mat-card appearance="outlined" class="routine-card" [class.routine-card--inactive]="!routine().isActive">
+  <mat-card-content class="routine-card__content">
+    <div class="routine-card__icon" [style.background]="routine().color">
+      <mat-icon>{{ routine().icon }}</mat-icon>
+    </div>
+
+    <button type="button" class="routine-card__body" (click)="view.emit()">
+      <p class="routine-card__name">{{ routine().name }}</p>
+      @if (routine().description) {
+        <p class="routine-card__description">{{ routine().description }}</p>
+      }
+      <p class="routine-card__meta">{{ stepCountLabel() }} · {{ durationLabel() }}</p>
+    </button>
+
+    <mat-slide-toggle
+      [checked]="routine().isActive"
+      matTooltip="Active"
+      aria-label="Toggle routine active"
+      (change)="toggleActive.emit()"
+      (click)="$event.stopPropagation()"
+    />
+
+    <button type="button" mat-icon-button aria-label="Routine actions" [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #menu="matMenu">
+      <button type="button" mat-menu-item (click)="view.emit()">
+        <mat-icon>visibility</mat-icon>
+        <span>View</span>
+      </button>
+      <button type="button" mat-menu-item (click)="edit.emit()">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <button type="button" mat-menu-item (click)="duplicate.emit()">
+        <mat-icon>content_copy</mat-icon>
+        <span>Duplicate</span>
+      </button>
+      <button type="button" mat-menu-item (click)="delete.emit()">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </mat-menu>
+  </mat-card-content>
+</mat-card>

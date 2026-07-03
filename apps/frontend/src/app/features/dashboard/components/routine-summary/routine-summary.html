@@ -1,0 +1,43 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Routines</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="routine-summary">
+    @if (loading()) {
+      <p class="routine-summary__hint">Loading…</p>
+    } @else {
+      <div class="routine-summary__section">
+        <span class="routine-summary__label">Current routine</span>
+        @if (summary().current; as current) {
+          <div class="routine-summary__routine">
+            <div class="routine-summary__icon" [style.background]="current.color">
+              <mat-icon>{{ current.icon }}</mat-icon>
+            </div>
+            <span>{{ current.name }}</span>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="summary().completionPercent" />
+          <span class="routine-summary__hint">{{ summary().completionPercent }}% through today's steps</span>
+        } @else {
+          <p class="routine-summary__hint">No active routine right now.</p>
+        }
+      </div>
+
+      <div class="routine-summary__section">
+        <span class="routine-summary__label">Next routine</span>
+        @if (summary().next; as next) {
+          <div class="routine-summary__routine">
+            <div class="routine-summary__icon" [style.background]="next.color">
+              <mat-icon>{{ next.icon }}</mat-icon>
+            </div>
+            <span>{{ next.name }} · {{ earliestStepTime(next) }}</span>
+          </div>
+        } @else {
+          <p class="routine-summary__hint">Nothing else scheduled today.</p>
+        }
+      </div>
+    }
+  </mat-card-content>
+  <mat-card-actions align="end">
+    <a mat-button routerLink="/routines">View all</a>
+  </mat-card-actions>
+</mat-card>

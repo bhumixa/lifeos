@@ -6,6 +6,7 @@ import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
+import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
 
 interface DashboardStat {
@@ -24,7 +25,7 @@ const PLACEHOLDER_STATS: DashboardStat[] = [
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [Skeleton, StatCard, QuickActions, RecentActivity],
+  imports: [Skeleton, StatCard, QuickActions, RoutineSummaryCard, RecentActivity],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })

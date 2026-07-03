@@ -30,6 +30,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/tasks/tasks.routes').then((m) => m.tasksRoutes),
       },
       {
+        path: 'routines',
+        loadChildren: () => import('./features/routines/routines.routes').then((m) => m.routinesRoutes),
+      },
+      {
         path: 'schedule',
         data: { breadcrumb: 'Schedule', icon: 'calendar_month' },
         loadComponent: () =>

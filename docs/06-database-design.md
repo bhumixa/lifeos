@@ -102,6 +102,44 @@ ScheduleTemplate
   blocksJson        json   -- template block definitions (relative times, not absolute)
 ```
 
+> **Added in Milestone 5 — Routine (not originally in this doc):** `ScheduleTemplate.blocksJson`
+> was this doc's original placeholder for "reusable time-blocked templates," but Milestone 5 asked
+> for first-class `Routine`/`RoutineStep` tables instead of a JSON blob — better suited to
+> per-step CRUD, reordering, and duplication than editing inside a JSON document. As implemented:
+>
+> ```
+> Routine
+>   id                uuid PK
+>   userId            FK -> User
+>   name              string
+>   icon              string   -- Material icon name
+>   color             string   -- hex or design-token name
+>   description        string, nullable
+>   isActive          boolean, default true
+>   createdAt / updatedAt
+>
+> RoutineStep
+>   id                     uuid PK
+>   routineId              FK -> Routine
+>   title                  string
+>   startTime              string   -- "HH:mm", 24-hour, local time-of-day (not a timestamp — see below)
+>   durationMinutes        int
+>   order                  int
+>   reminderMinutesBefore  int, nullable
+>   isRequired             boolean, default true
+> ```
+>
+> - **`startTime` is a plain string, not a `DateTime`**: a Routine is a repeatable daily template
+>   with no calendar date of its own, so there's no date for a timestamp to belong to.
+> - **No completion-tracking field or table.** Neither entity's given field list includes one, so
+>   the Milestone 5 dashboard's "Routine completion %" is computed as *time-elapsed progress*
+>   through the current routine's steps (frontend-only, comparing each step's `startTime` to the
+>   current time), not persisted per-day completion state. A `RoutineStepCompletion` table (id,
+>   routineStepId, date, completedAt) would be the natural next step if genuine user-confirmed
+>   completion tracking is wanted later — deliberately not built now since it wasn't asked for.
+> - **Hard delete, unlike Task**: a routine is structural configuration a user recreates easily,
+>   not the kind of irreplaceable content the soft-delete principle below is protecting.
+
 ### Habits & streaks
 
 ```

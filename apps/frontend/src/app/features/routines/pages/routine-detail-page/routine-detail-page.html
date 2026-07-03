@@ -1,0 +1,72 @@
+<section class="routine-detail-page">
+  <button type="button" mat-button (click)="back()">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Routines
+  </button>
+
+  @if (loading()) {
+    <div class="routine-detail-page__skeleton">
+      <app-skeleton height="32px" width="60%" />
+      <app-skeleton height="16px" width="90%" />
+      <app-skeleton height="16px" width="40%" />
+    </div>
+  } @else if (error()) {
+    <p class="routine-detail-page__error">{{ error() }}</p>
+  } @else if (routine(); as current) {
+    <mat-card appearance="outlined" class="routine-detail-page__card">
+      <mat-card-header>
+        <div class="routine-detail-page__icon" [style.background]="current.color" mat-card-avatar>
+          <mat-icon>{{ current.icon }}</mat-icon>
+        </div>
+        <mat-card-title>{{ current.name }}</mat-card-title>
+        <mat-card-subtitle>{{ current.steps.length }} steps · {{ durationLabel() }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (current.description) {
+          <p class="routine-detail-page__description">{{ current.description }}</p>
+        }
+
+        @if (!current.isActive) {
+          <mat-chip-set>
+            <mat-chip disabled>Inactive</mat-chip>
+          </mat-chip-set>
+        }
+
+        <ol class="routine-detail-page__steps">
+          @for (step of current.steps; track step.id) {
+            <li class="routine-detail-page__step">
+              <span class="routine-detail-page__step-time">{{ formatTimeOfDay(step.startTime) }}</span>
+              <span class="routine-detail-page__step-title">
+                {{ step.title }}
+                @if (!step.isRequired) {
+                  <span class="routine-detail-page__step-optional">(optional)</span>
+                }
+              </span>
+              <span class="routine-detail-page__step-duration">{{ step.durationMinutes }}m</span>
+            </li>
+          }
+        </ol>
+      </mat-card-content>
+
+      <mat-card-actions align="end">
+        <button type="button" mat-stroked-button (click)="toggleActive()">
+          <mat-icon>{{ current.isActive ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+          {{ current.isActive ? 'Deactivate' : 'Activate' }}
+        </button>
+        <button type="button" mat-stroked-button (click)="duplicate()">
+          <mat-icon>content_copy</mat-icon>
+          Duplicate
+        </button>
+        <button type="button" mat-stroked-button (click)="edit()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button type="button" mat-stroked-button color="warn" (click)="delete()">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  }
+</section>

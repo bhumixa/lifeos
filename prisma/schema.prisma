@@ -7,6 +7,9 @@
 // than being created unused.
 // Milestone 4 (Task Management) adds Task, using the simplified field set given for that
 // milestone rather than the full docs/06-database-design.md shape — see the comment on Task.
+// Milestone 5 (Routine Engine) adds Routine/RoutineStep — a new module not named in
+// docs/06-database-design.md (the closest existing concept is ScheduleTemplate's JSON blob);
+// see the comment on Routine for why it's modeled as first-class relational tables instead.
 
 generator client {
   provider = "prisma-client-js"
@@ -48,6 +51,7 @@ model User {
 
   refreshTokens RefreshToken[]
   tasks         Task[]
+  routines      Routine[]
 
   @@map("users")
 }
@@ -112,4 +116,49 @@ model Task {
   @@index([userId, status])
   @@index([userId, dueDate])
   @@map("tasks")
+}
+
+// A Routine is a repeatable *daily template* (e.g. "Morning Routine"), not tied to a specific
+// calendar date — that's why RoutineStep.startTime is a plain "HH:mm" string rather than a
+// DateTime: there is no date for it to belong to. No `type` field (Morning/Evening/Custom) is
+// modeled — those are just names/icons a user picks, not a fixed enum in the brief. No
+// completion-tracking field/table is added either: neither Routine nor RoutineStep's given field
+// list includes one, so the dashboard's "Routine completion %" is computed as time-elapsed
+// progress through today's steps (frontend-only, from startTime), not persisted per-day
+// completion state — see docs/06-database-design.md's note on Routine for the full rationale.
+model Routine {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  icon        String
+  color       String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps RoutineStep[]
+
+  @@index([userId, isActive])
+  @@map("routines")
+}
+
+model RoutineStep {
+  id        String  @id @default(uuid())
+  routineId String
+  routine   Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  title    String
+  // "HH:mm", 24-hour, local time-of-day — see the comment on Routine for why not DateTime.
+  startTime             String
+  durationMinutes       Int
+  order                 Int
+  reminderMinutesBefore Int?
+  isRequired            Boolean @default(true)
+
+  @@index([routineId, order])
+  @@map("routine_steps")
 }

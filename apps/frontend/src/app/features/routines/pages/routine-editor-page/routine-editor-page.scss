@@ -1,0 +1,127 @@
+.routine-editor-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 700px;
+  margin: 0 auto;
+
+  h1 {
+    margin: 0;
+    font: var(--mat-sys-headline-medium);
+  }
+}
+
+.routine-editor-page__error {
+  color: var(--mat-sys-error);
+}
+
+.routine-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.routine-form__full {
+  width: 100%;
+}
+
+.routine-form__picker {
+  margin-bottom: 1rem;
+}
+
+.routine-form__picker-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.routine-form__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.routine-form__icon-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: var(--mat-sys-surface-variant);
+  cursor: pointer;
+
+  &--selected {
+    border-color: var(--mat-sys-primary);
+  }
+}
+
+.routine-form__color-swatch {
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+
+  &--selected {
+    border-color: var(--mat-sys-on-surface);
+  }
+}
+
+.routine-editor-page__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.routine-editor-page__step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+}
+
+.routine-editor-page__drag-handle {
+  color: var(--mat-sys-outline);
+  cursor: grab;
+}
+
+.routine-editor-page__step-time {
+  min-width: 76px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.routine-editor-page__step-title {
+  flex: 1 1 auto;
+}
+
+.routine-editor-page__step-duration {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.routine-editor-page__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+// CDK drag-and-drop visual feedback
+:host ::ng-deep .cdk-drag-preview {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+:host ::ng-deep .cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+:host ::ng-deep .cdk-drop-list-dragging .routine-editor-page__step:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}

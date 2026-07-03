@@ -42,6 +42,7 @@ src/
 │   │   ├── dashboard/
 │   │   ├── planner/               # daily/weekly/monthly planning, time blocking, templates
 │   │   ├── tasks/
+│   │   ├── routines/               # Morning/Evening/Custom routines, drag-and-drop step ordering
 │   │   ├── habits/
 │   │   ├── streaks/
 │   │   ├── journal/
@@ -63,7 +64,8 @@ src/
 **Deviations from the plan above, made during implementation:**
 - `core/interceptors/` was folded into `core/auth/` — the only interceptor built so far (attaching/refreshing the access token) is inherently auth-specific, not a generic cross-cutting concern. A true cross-cutting interceptor (e.g. a future global error-toast) would still get its own `core/interceptors/`.
 - `core/layout/` was added (not in the original plan) once shell-wide state (sidenav collapse, mobile drawer, breadcrumbs) needed a home distinct from `core/services/`'s generic API clients.
-- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Schedule, Habits, Journal, AI Coach, Analytics, Settings as of Milestone 3) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
+- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks and Routines have since been built; Schedule, Habits, Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 5) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
+- **Milestone 5 (Routines)** added a nav item (`Routines`, in `layout/sidenav/nav-items.ts`) that wasn't part of the original 8-item nav list from Milestone 3 — the module wasn't planned for at that point. Its `features/routines/` follows the per-feature convention below, plus a `components/routine-step-form-dialog/` (add/edit a single step — presentation-only, no API calls of its own) alongside the list/detail/editor pages.
 
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
@@ -99,6 +101,7 @@ src/
 │   ├── auth/
 │   ├── users/
 │   ├── tasks/
+│   ├── routines/                # Morning/Evening/Custom routines + steps — see docs/06-database-design.md
 │   ├── planner/
 │   ├── habits/
 │   ├── streaks/
@@ -140,6 +143,18 @@ Frontend `features/tasks/` follows the per-feature convention above (`pages/`, `
 `services/`, `state/`) plus a `utils/` for pure display-formatting helpers (priority/status
 label+color maps, due-date-indicator logic) — small enough not to warrant `models/`, since
 `@lifeos/shared-types` already covers the API contract types.
+
+**As implemented (Milestone 5 — `modules/routines/`):** same convention as `tasks/`, but
+`RoutinesService` *does* build its own response shape (`RoutineResponseDto`) rather than
+returning the Prisma type directly — `totalDurationMinutes` is computed (sum of step durations),
+not a column. The nested step endpoints (`/routines/:id/steps`, `.../reorder`) live in the same
+controller/service rather than a separate `modules/routine-steps/` — a `RoutineStep` has no
+meaning outside its parent `Routine`, unlike, say, `Task` and `User` which are independently
+addressable resources. Frontend `features/routines/` mirrors `features/tasks/`'s shape, with one
+difference driven by the backend not having a "replace all steps" bulk endpoint: the Routine
+Editor page persists each step add/edit/delete/reorder immediately in edit mode, but batches
+everything into one `POST /routines` call in create mode (see the comment atop
+`routine-editor-page.ts`).
 
 ## Root-level config
 

@@ -4,6 +4,7 @@ import { validateEnv } from './config/env.validation.js';
 import { PrismaModule } from './database/prisma/prisma.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { RoutinesModule } from './modules/routines/routines.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
@@ -18,6 +19,7 @@ import { UsersModule } from './modules/users/users.module.js';
     UsersModule,
     AuthModule,
     TasksModule,
+    RoutinesModule,
   ],
 })
 export class AppModule {}

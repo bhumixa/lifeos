@@ -8,6 +8,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
   { label: 'Tasks', icon: 'checklist', route: '/tasks' },
+  { label: 'Routines', icon: 'event_repeat', route: '/routines' },
   { label: 'Schedule', icon: 'calendar_month', route: '/schedule' },
   { label: 'Habits', icon: 'repeat', route: '/habits' },
   { label: 'Journal', icon: 'book', route: '/journal' },
