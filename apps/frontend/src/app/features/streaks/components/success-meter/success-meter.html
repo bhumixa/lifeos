@@ -1,0 +1,7 @@
+<div class="success-meter">
+  <div class="success-meter__header">
+    <span class="success-meter__title">Success Rate</span>
+    <span class="success-meter__value">{{ percent() }}% · {{ label() }}</span>
+  </div>
+  <mat-progress-bar mode="determinate" [value]="percent()" />
+</div>

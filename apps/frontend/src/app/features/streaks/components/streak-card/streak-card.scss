@@ -1,0 +1,11 @@
+.streak-card__content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.streak-card__empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

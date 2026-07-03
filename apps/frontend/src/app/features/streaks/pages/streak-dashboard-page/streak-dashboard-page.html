@@ -1,0 +1,63 @@
+<section class="streak-dashboard-page">
+  <header class="streak-dashboard-page__header">
+    <h1>Streak Dashboard</h1>
+    <button
+      type="button"
+      mat-stroked-button
+      [disabled]="!statistics() || statistics()!.freezeDays.remainingThisMonth === 0"
+      (click)="useFreezeDay()"
+    >
+      Use Freeze Day ({{ statistics()?.freezeDays?.remainingThisMonth ?? 0 }} left)
+    </button>
+  </header>
+
+  @if (error(); as message) {
+    <div class="streak-dashboard-page__error">
+      <p>{{ message }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (loading()) {
+    <div class="streak-dashboard-page__skeletons">
+      @for (row of [0, 1, 2, 3]; track row) {
+        <app-skeleton height="120px" />
+      }
+    </div>
+  } @else if (statistics(); as stats) {
+    <div class="streak-dashboard-page__grid">
+      <app-streak-card
+        class="streak-dashboard-page__span-2"
+        [currentStreak]="stats.currentStreak"
+        [longestStreak]="stats.longestStreak"
+        [hasDailyHabits]="stats.hasDailyHabits"
+      />
+      <app-xp-progress [xp]="stats.xpEarned" />
+
+      <div class="streak-dashboard-page__rings">
+        <app-consistency-ring [percent]="stats.weeklyConsistency" label="This Week" />
+        <app-consistency-ring [percent]="stats.monthlyConsistency" label="This Month" />
+      </div>
+      <app-success-meter class="streak-dashboard-page__span-2" [percent]="stats.successRate" />
+
+      <app-weekly-heatmap class="streak-dashboard-page__span-2" [history]="stats.dailyHistory" />
+      <app-monthly-heatmap class="streak-dashboard-page__span-2" [history]="stats.dailyHistory" />
+    </div>
+
+    <section class="streak-dashboard-page__achievements">
+      <div class="streak-dashboard-page__achievements-header">
+        <h2>Recent Achievements</h2>
+        <a routerLink="/streaks/achievements">View all</a>
+      </div>
+      @if (recentUnlocked().length === 0) {
+        <p class="streak-dashboard-page__no-achievements">
+          No achievements unlocked yet — keep your streak going!
+        </p>
+      } @else {
+        <div class="streak-dashboard-page__achievements-grid">
+          @for (achievement of recentUnlocked(); track achievement.id) {
+            <app-achievement-card [achievement]="achievement" />
+          }
+        </div>
+      }
+    </section>
+  }
+</section>

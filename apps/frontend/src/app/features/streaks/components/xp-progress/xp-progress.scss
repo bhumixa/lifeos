@@ -1,0 +1,24 @@
+.xp-progress {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.xp-progress__icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #ab47bc;
+}
+
+.xp-progress__value {
+  margin: 0;
+  font: var(--mat-sys-headline-large);
+  line-height: 1;
+}
+
+.xp-progress__label {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

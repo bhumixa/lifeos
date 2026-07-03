@@ -14,6 +14,7 @@ import { RecentActivity } from '../../components/recent-activity/recent-activity
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
 import { DashboardPlannerService } from '../../services/dashboard-planner.service';
+import { DashboardStreaksService } from '../../services/dashboard-streaks.service';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
 
 interface DashboardStat {
@@ -21,11 +22,6 @@ interface DashboardStat {
   value: string;
   icon: string;
 }
-
-// Best Habit Streak is explicitly deferred to Milestone 7's Streak Engine — nothing computes it
-// yet, so it stays a placeholder even though Habits' own three cards (Milestone 6) and the
-// Planner's four cards (Milestone 7) are now real.
-const PLACEHOLDER_STATS: DashboardStat[] = [{ label: 'Best Habit Streak', value: '—', icon: 'local_fire_department' }];
 
 @Component({
   selector: 'app-dashboard-page',
@@ -46,9 +42,9 @@ export class DashboardPage implements OnInit {
   private readonly dashboardTaskStats = inject(DashboardTaskStatsService);
   private readonly dashboardHabitStats = inject(DashboardHabitStatsService);
   private readonly dashboardPlanner = inject(DashboardPlannerService);
+  private readonly dashboardStreaks = inject(DashboardStreaksService);
 
   protected readonly user = this.authService.user;
-  protected readonly placeholderStats = PLACEHOLDER_STATS;
 
   protected readonly taskStatsLoading = signal(true);
   protected readonly taskStats = signal<DashboardStat[]>([
@@ -62,6 +58,17 @@ export class DashboardPage implements OnInit {
     { label: 'Habits Completed Today', value: '—', icon: 'repeat' },
     { label: 'Total Active Habits', value: '—', icon: 'checklist_rtl' },
     { label: 'Completion Percentage', value: '—', icon: 'percent' },
+  ]);
+
+  protected readonly streaksStatsLoading = signal(true);
+  protected readonly streaksStats = signal<DashboardStat[]>([
+    { label: 'Current Streak', value: '—', icon: 'local_fire_department' },
+    { label: 'Longest Streak', value: '—', icon: 'emoji_events' },
+    { label: 'XP Earned', value: '—', icon: 'bolt' },
+    { label: 'Achievements', value: '—', icon: 'workspace_premium' },
+    { label: 'Weekly Success', value: '—', icon: 'calendar_view_week' },
+    { label: 'Monthly Success', value: '—', icon: 'calendar_month' },
+    { label: 'Consistency', value: '—', icon: 'percent' },
   ]);
 
   protected readonly plannerLoading = signal(true);
@@ -141,6 +148,22 @@ export class DashboardPage implements OnInit {
         this.plannerLoading.set(false);
       },
       error: () => this.plannerLoading.set(false),
+    });
+
+    this.dashboardStreaks.load().subscribe({
+      next: (stats) => {
+        this.streaksStats.set([
+          { label: 'Current Streak', value: String(stats.currentStreak), icon: 'local_fire_department' },
+          { label: 'Longest Streak', value: String(stats.longestStreak), icon: 'emoji_events' },
+          { label: 'XP Earned', value: String(stats.xpEarned), icon: 'bolt' },
+          { label: 'Achievements', value: String(stats.achievementsUnlockedCount), icon: 'workspace_premium' },
+          { label: 'Weekly Success', value: `${stats.weeklyConsistency}%`, icon: 'calendar_view_week' },
+          { label: 'Monthly Success', value: `${stats.monthlyConsistency}%`, icon: 'calendar_month' },
+          { label: 'Consistency', value: `${stats.successRate}%`, icon: 'percent' },
+        ]);
+        this.streaksStatsLoading.set(false);
+      },
+      error: () => this.streaksStatsLoading.set(false),
     });
   }
 

@@ -1,0 +1,23 @@
+<mat-card
+  class="achievement-card"
+  [class.achievement-card--locked]="!achievement().unlocked"
+  appearance="outlined"
+  [matTooltip]="achievement().description"
+>
+  <mat-card-content class="achievement-card__content">
+    <mat-icon class="achievement-card__icon">{{ achievement().icon }}</mat-icon>
+    <p class="achievement-card__title">{{ achievement().title }}</p>
+    <p class="achievement-card__description">{{ achievement().description }}</p>
+    <p class="achievement-card__xp">+{{ achievement().xpReward }} XP</p>
+    @if (achievement().unlocked) {
+      <p class="achievement-card__unlocked-at">
+        Unlocked {{ achievement().unlockedAt | date: 'mediumDate' }}
+      </p>
+    } @else {
+      <p class="achievement-card__locked-label">
+        <mat-icon inline>lock</mat-icon>
+        Locked
+      </p>
+    }
+  </mat-card-content>
+</mat-card>

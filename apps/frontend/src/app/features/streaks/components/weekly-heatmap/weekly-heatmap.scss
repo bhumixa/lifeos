@@ -1,0 +1,11 @@
+.weekly-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.weekly-heatmap__title {
+  margin: 0;
+  font-weight: 600;
+  font: var(--mat-sys-body-medium);
+}

@@ -1,0 +1,27 @@
+<section class="achievement-gallery-page">
+  <header class="achievement-gallery-page__header">
+    <h1>Achievements</h1>
+    @if (!loading() && !error()) {
+      <p class="achievement-gallery-page__count">{{ unlockedCount() }} / {{ achievements().length }} unlocked</p>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <div class="achievement-gallery-page__error">
+      <p>{{ message }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (loading()) {
+    <div class="achievement-gallery-page__grid">
+      @for (row of [0, 1, 2, 3, 4, 5]; track row) {
+        <app-skeleton height="150px" />
+      }
+    </div>
+  } @else {
+    <div class="achievement-gallery-page__grid">
+      @for (achievement of achievements(); track achievement.id) {
+        <app-achievement-card [achievement]="achievement" />
+      }
+    </div>
+  }
+</section>

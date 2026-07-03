@@ -11,6 +11,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Routines', icon: 'event_repeat', route: '/routines' },
   { label: 'Schedule', icon: 'calendar_month', route: '/schedule' },
   { label: 'Habits', icon: 'repeat', route: '/habits' },
+  { label: 'Streaks', icon: 'local_fire_department', route: '/streaks' },
   { label: 'Journal', icon: 'book', route: '/journal' },
   { label: 'AI Coach', icon: 'psychology', route: '/ai-coach' },
   { label: 'Analytics', icon: 'insights', route: '/analytics' },

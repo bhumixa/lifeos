@@ -5,8 +5,9 @@ import { authGuard } from './core/auth/auth.guard';
  * Every non-auth route renders inside layout/shell/shell.ts. Sections whose feature module
  * hasn't been built yet (see docs/09-roadmap.md for the phase each one belongs to) use the
  * shared FeaturePlaceholder component; Tasks (Milestone 4), Routines (Milestone 5), Habits
- * (Milestone 6), and the Daily Planner (Milestone 7, mounted at the pre-existing `schedule` path
- * rather than a new `planner` one — that nav item already existed pointing at this placeholder)
+ * (Milestone 6), the Daily Planner (Milestone 7, mounted at the pre-existing `schedule` path
+ * rather than a new `planner` one — that nav item already existed pointing at this placeholder),
+ * and Streaks (Milestone 8, a new `streaks` nav item — no pre-existing placeholder to reuse)
  * each have a real feature module, lazy-loaded via their own `*Routes`.
  * `data.breadcrumb`/`data.icon` feed both the sidenav (layout/sidenav/nav-items.ts) and
  * BreadcrumbService — keep labels in sync with nav-items.ts.
@@ -42,6 +43,10 @@ export const routes: Routes = [
       {
         path: 'habits',
         loadChildren: () => import('./features/habits/habits.routes').then((m) => m.habitsRoutes),
+      },
+      {
+        path: 'streaks',
+        loadChildren: () => import('./features/streaks/streaks.routes').then((m) => m.streaksRoutes),
       },
       {
         path: 'journal',

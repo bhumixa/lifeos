@@ -1,0 +1,10 @@
+<mat-card class="streak-card" appearance="outlined">
+  <mat-card-content class="streak-card__content">
+    @if (hasDailyHabits()) {
+      <app-current-streak [days]="currentStreak()" />
+      <app-longest-streak [days]="longestStreak()" />
+    } @else {
+      <p class="streak-card__empty">Add a daily habit to start building a streak.</p>
+    }
+  </mat-card-content>
+</mat-card>

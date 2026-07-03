@@ -32,8 +32,14 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
-    @for (stat of placeholderStats; track stat.label) {
-      <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+    @if (streaksStatsLoading()) {
+      @for (i of [0, 1, 2, 3, 4, 5, 6]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of streaksStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
     }
   </div>
 

@@ -1,0 +1,24 @@
+.longest-streak {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.longest-streak__icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #ffb300;
+}
+
+.longest-streak__value {
+  margin: 0;
+  font: var(--mat-sys-headline-large);
+  line-height: 1;
+}
+
+.longest-streak__label {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

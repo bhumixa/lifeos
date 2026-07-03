@@ -1,0 +1,20 @@
+.success-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.success-meter__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font: var(--mat-sys-body-medium);
+}
+
+.success-meter__title {
+  font-weight: 600;
+}
+
+.success-meter__value {
+  color: var(--mat-sys-on-surface-variant);
+}
