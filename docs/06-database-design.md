@@ -221,9 +221,11 @@ Streak
 >   same "computed, not persisted" choice Milestone 5 made for Routine's completion %, and
 >   consistent with this doc's own principle that `Streak` is a derived rollup over the log, never
 >   a source of truth. Actual streak *tracking* — `Streak`, `currentStreak`/`longestStreak`,
->   freeze/recovery — remains explicitly out of scope; Milestone 7 turned out to be the Daily
->   Planner rather than the Streak Engine this note originally assumed it would be — a Streak
->   Engine milestone is still unscheduled as of Milestone 7 (see docs/09-roadmap.md).
+>   freeze/recovery — remained explicitly out of scope at the time (Milestone 7 turned out to be
+>   the Daily Planner, not the Streak Engine this note originally assumed it would be). Milestone 8
+>   is that Streak Engine — see the note below the PlannerDay/PlannerBlock block for what it adds,
+>   and note that it *doesn't* add a `Streak` table at all: every number this section anticipated
+>   storing stays derived, computed fresh from `HabitLog` on every read instead.
 > - **`(userId, name)` uniqueness** backs "validate duplicate habit names per user": `HabitsService`
 >   checks it first (a friendly 409) with the DB constraint as a last-resort backstop against a
 >   create/create race.
@@ -278,6 +280,64 @@ Streak
 >   /planner/today` and `GET /planner/:date` find-or-create against this constraint rather than
 >   requiring a separate provisioning step, the same convention `HabitLog`'s `(habitId, date)`
 >   uniqueness supports for its own upsert-like reads.
+
+> **Added in Milestone 8 — Streak Engine & Gamification Foundation (not originally in this
+> doc — the closest existing concepts are `Streak` above and `GamificationProfile`/`Badge`/
+> `UserBadge`/`Challenge`/`UserChallenge` below):**
+>
+> ```
+> Achievement
+>   id                uuid PK
+>   code              string, unique   -- e.g. "FIRST_HABIT", "STREAK_7"
+>   title             string
+>   description        string
+>   icon              string   -- Material icon name
+>   xpReward          int
+>   createdAt
+>
+> UserAchievement
+>   id                uuid PK
+>   userId            FK -> User
+>   achievementId     FK -> Achievement
+>   unlockedAt        timestamp
+>   -- unique (userId, achievementId)
+>
+> FreezeDay
+>   id                uuid PK
+>   userId            FK -> User
+>   date              date   -- the calendar date being protected, not when it was spent
+>   consumed          boolean, default true
+>   createdAt
+>   -- unique (userId, date)
+> ```
+>
+> - **No `Streak` table, matching this milestone's own brief** ("Do NOT store streak values
+>   permanently. HabitLog remains the source of truth") — `currentStreak`/`longestStreak` and every
+>   consistency/success-rate/XP number this doc's `Streak`/`GamificationProfile` sketched as stored
+>   columns are instead recomputed on every `GET /streaks*` read from `HabitLog` (plus `Task`/
+>   `PlannerBlock` completion counts, for XP), the same "derived, not persisted" principle
+>   Habit/Routine already established for their own completion percentages. See
+>   `docs/05-architecture.md` and `modules/streaks/streaks.service.ts` for the full computation.
+> - **`Achievement` replaces this doc's `Badge`**, and `UserAchievement` replaces `UserBadge` —
+>   different names for the same shape (a catalog + a per-user unlock join), chosen to match the
+>   milestone brief's own vocabulary ("Achievement Gallery," not "Badge Gallery"). `xpReward` lives
+>   on the catalog row (not computed) since it's a fixed, data-driven property of the achievement
+>   itself, unlike the streak/consistency numbers above.
+> - **`Challenge`/`UserChallenge` remain unbuilt** — daily/weekly challenges are a distinct concept
+>   from the fixed Achievement catalog this milestone implements, and weren't asked for.
+> - **`FreezeDay` has no `habitId`** — it's a flat, user-wide mechanic (spending one protects
+>   *every* active daily habit's streak for that date, not a single habit's), matching the
+>   milestone's own given field list (`id`, `userId`, `date`, `consumed`) exactly. `createdAt` was
+>   added beyond that literal list, consistent with every other model in this schema always
+>   tracking one.
+> - **`consumed` defaults `true`**: this milestone has no "reserve a freeze for later" concept —
+>   the only codepath that creates a row (`POST /freeze-days/use`) does so at the moment of use —
+>   but the column is real (not merely implied by the row's existence) so a future "auto-apply my
+>   remaining freezes" job could pre-grant an un-consumed row without a schema change.
+> - **`(userId, achievementId)` / `(userId, date)` uniqueness** back "unlock each achievement at
+>   most once" and "spend at most one freeze per calendar date" respectively, the same
+>   idempotent-upsert convention `HabitLog`'s `(habitId, date)` and `PlannerDay`'s `(userId, date)`
+>   already use.
 
 ### Reflection & goals
 
@@ -336,6 +396,12 @@ Notification
 ```
 
 ### Analytics & gamification
+
+> **Superseded in part by Milestone 8** — see the note under "Habits & streaks" above.
+> `GamificationProfile.xp`/`Badge`/`UserBadge` are replaced there by `Achievement`/
+> `UserAchievement` plus an on-read-computed XP total (no stored `xp`/`level` columns —
+> "prepare the foundation, don't build levels yet" per that milestone's brief). `DailyStat` and
+> `Challenge`/`UserChallenge` below remain exactly as sketched here — unbuilt.
 
 ```
 DailyStat   -- precomputed nightly per user

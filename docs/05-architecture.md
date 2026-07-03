@@ -95,6 +95,45 @@ zone X" and "what UTC instant is 9am local on this date") are narrow enough that
 IANA-tz-aware `Intl` API covers them, verified against both of 2026's America/New_York DST
 transitions in `timezone.util.spec.ts`.
 
+**Milestone 8 (Streak Engine) reuses `planner/utils/timezone.util.ts` directly, plus one
+additive export.** This is the second module needing per-user timezone math (the first genuine
+reuse of that file across a module boundary via a plain file import, not through the owning
+module's exported service — these are pure functions with no DI/state needs, so there's nothing
+to inject). One new function was added to the same file, `getZonedHour`, so the Morning
+Warrior/Night Owl achievements can classify a `HabitLog`'s local hour-of-day; every existing
+export is untouched.
+
+**Milestone 8 also does *not* introduce `EventEmitter2`, despite the paragraph above naming
+"Streaks reacting to `HabitLog` changes" as the most likely first real candidate.** Wiring that up
+would mean modifying `HabitsService`/`TasksService`/`PlannerService` to emit completion events —
+a real (if small) change to already-shipped, approved modules, which this milestone's "do not
+modify existing functionality unless absolutely necessary" instruction weighs against. Instead,
+`StreaksService`/`AchievementsService` use a **pull, not push** model: `AchievementsService
+.evaluateAndUnlock` runs as a side effect of `GET /streaks/statistics` (the one endpoint that
+already computes every input every achievement condition needs — XP totals, longest streak,
+perfect week/month, morning/night counts), persisting a `UserAchievement` row the first time a
+condition is caught true. Every completion count needed for that (`TasksService.countCompleted`,
+`PlannerService.countCompletedBlocks`) is a small additive export on the existing service, not a
+new query path bypassing it — the same "reuse services" rule applied to a read rather than a
+write, exactly like Planner's own precedent above. This is sufficient for every required GET
+endpoint; the one trade-off is that achievements whose condition can go true-then-false again
+(`PERFECT_WEEK`/`PERFECT_MONTH`) are only guaranteed to unlock if `GET /streaks/statistics`
+happens to be called while the condition holds, rather than the instant it becomes true — an
+acceptable best-effort result for a foundation milestone given the Dashboard already calls that
+endpoint on every load. `EventEmitter2` remains un-installed; a future milestone wanting
+instant, push-driven achievement-unlock notifications (e.g. a toast the moment a streak hits 7
+days) is still the natural place to introduce it, exactly as this doc originally anticipated.
+
+**`StreaksModule` does not import `HabitsModule`**, unlike Planner's imports of
+Tasks/Routines/Habits. `Habit`/`HabitLog` are the Streak Engine's own primary domain — the
+milestone brief is explicit that `HabitLog` is the system's source of truth — so `StreaksService`
+queries them directly via `PrismaService`, the same way `HabitsService` itself does, rather than
+through another service's read endpoints. None of `HabitsService`'s existing reads
+(`today`/`summary`/`history`) expose the unbounded multi-day, multi-habit log range the
+streak/consistency math needs; adding one whose only caller would be Streaks isn't any clearer
+than Streaks owning its own narrow, read-only query over a table this milestone is specifically
+about.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:

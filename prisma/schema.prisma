@@ -16,6 +16,12 @@
 // Milestone 7 (Daily Planner) adds PlannerDay/PlannerBlock — a new concept not named in
 // docs/06-database-design.md (the closest existing concept is ScheduleBlock); see the comment on
 // PlannerDay for why it's split into a day container + blocks rather than reusing ScheduleBlock.
+// Milestone 8 (Streak Engine & Gamification Foundation) adds Achievement/UserAchievement/
+// FreezeDay. Streak values themselves (current/longest streak, consistency %, XP) are NOT
+// modeled as columns anywhere, per that milestone's brief — HabitLog (plus Task/PlannerBlock for
+// XP) remains the sole source of truth and every number is recomputed on read by
+// modules/streaks, the same "derived, not stored" principle Habit/Routine already apply to their
+// own completion percentages. See the comment on Achievement for the full rationale.
 
 generator client {
   provider = "prisma-client-js"
@@ -55,11 +61,13 @@ model User {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  refreshTokens RefreshToken[]
-  tasks         Task[]
-  routines      Routine[]
-  habits        Habit[]
-  plannerDays   PlannerDay[]
+  refreshTokens    RefreshToken[]
+  tasks            Task[]
+  routines         Routine[]
+  habits           Habit[]
+  plannerDays      PlannerDay[]
+  userAchievements UserAchievement[]
+  freezeDays       FreezeDay[]
 
   @@map("users")
 }
@@ -315,4 +323,69 @@ model PlannerBlock {
   @@index([plannerDayId, order])
   @@index([plannerDayId, startTime])
   @@map("planner_blocks")
+}
+
+// Catalog of unlockable achievements — data-driven by design (per the milestone brief's "avoid
+// hardcoding logic inside controllers"): each row's `code` is looked up against a single
+// TypeScript definitions array (modules/streaks/utils/achievement-definitions.ts) that owns the
+// actual unlock condition and xpReward, so adding/tuning an achievement never requires touching
+// AchievementsController/StreaksController. Rows are upserted from that array at boot
+// (AchievementsService.onModuleInit) rather than via a separate `prisma db seed` step — one
+// source of truth (the TS array) instead of two (a seed script + this table) that could drift.
+model Achievement {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  title       String
+  description String
+  icon        String
+  xpReward    Int
+  createdAt   DateTime @default(now())
+
+  unlocks UserAchievement[]
+
+  @@map("achievements")
+}
+
+// The durable record of *when* a user actually earned an achievement — everything else about
+// streaks/consistency/XP is recomputed on every read (see the comment above), but an unlock
+// instant is a genuine fact no other table could derive, so it's the one place this milestone
+// persists state. Achievements are evaluated (and unlocked, if newly earned) as a side effect of
+// reading GET /streaks/statistics, /streaks, or /achievements* — see AchievementsService's class
+// doc for why this is a pull/read-time evaluation rather than a live NestJS domain-event
+// subscription.
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+// One row per calendar date a user has spent a streak-freeze on — the "recovery streak" mechanic
+// docs/03-assumptions.md (#2) and docs/04-improvements.md (#2) flagged as undefined, resolved
+// here as a small monthly quota (FreezeDaysService.FREEZE_DAYS_PER_MONTH) of forgivable missed
+// days, Duolingo-style. `consumed` defaults to true because this milestone has no "reserve a
+// freeze for later" concept — the only codepath that creates a row (POST /freeze-days/use) does
+// so at the moment of use — but is still a real, queryable column (not merely implied by the
+// row's existence) so a future "auto-apply my remaining freezes to any day I miss" job could mark
+// a pre-granted freeze un-consumed until it's actually needed, without a schema change.
+model FreezeDay {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Date-only, like HabitLog.date/PlannerDay.date — the calendar date being protected, not the
+  // instant the freeze was spent (that's createdAt).
+  date      DateTime @db.Date
+  consumed  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // A user can only spend one freeze per calendar date.
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("freeze_days")
 }

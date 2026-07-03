@@ -6,6 +6,80 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 8 — Streak Engine & Gamification Foundation (2026-07-03)
+
+Production-ready consistency/motivation layer: backend `modules/streaks` (7 endpoints across
+Streaks/Achievements/Freeze Days) and a full frontend feature (Streak Dashboard, Achievement
+Gallery, nine presentational components). The main Dashboard's last placeholder stat ("Best Habit
+Streak") is now real, joined by six more (Longest Streak, XP Earned, Achievements, Weekly/Monthly
+Success, Consistency).
+
+Key decisions:
+- **No streak values are stored anywhere** — the milestone brief is explicit ("Do NOT store
+  streak values permanently. HabitLog remains the source of truth"), and this milestone extends
+  that same "derived, not stored" principle (already used for Habit/Routine completion %) to XP
+  and every consistency metric too. Everything is recomputed from `HabitLog` (plus `Task`/
+  `PlannerBlock` completion counts, for XP) on every `GET` request, bounded by a documented ~13
+  month lookback window (`STREAK_LOOKBACK_DAYS`) rather than an unbounded historical scan.
+- **`Achievement`/`UserAchievement`/`FreezeDay` are the three tables actually created** — a
+  catalog, a per-user unlock record, and a per-user-per-date freeze usage log. The catalog is
+  upserted from one TypeScript array (`utils/achievement-definitions.ts`) at boot
+  (`AchievementsService.onModuleInit`) rather than via a separate `prisma db seed` script, so
+  there's one source of truth for the achievement list instead of two that could drift.
+- **Achievement unlocking is evaluated on read, not via a live domain event.**
+  `docs/05-architecture.md` had flagged "Streaks reacting to HabitLog changes" as the likely first
+  use of `EventEmitter2` — but wiring that up would mean modifying Habits/Tasks/Planner to emit
+  completion events, which this milestone's "do not modify existing functionality unless
+  absolutely necessary" instruction weighs against for a foundation milestone. Instead,
+  `AchievementsService.evaluateAndUnlock` runs as a side effect of `GET /streaks/statistics` — the
+  one endpoint that already computes every input every achievement condition needs — and persists
+  a `UserAchievement` row the first time a condition is caught true. `EventEmitter2` remains
+  un-installed; this milestone's pull-based evaluation is sufficient for the required GET
+  endpoints, and is a smaller, safer footprint than wiring up push-based events would have been.
+  See the class doc on `AchievementsService` for the known trade-off this creates for
+  `PERFECT_WEEK`/`PERFECT_MONTH` specifically (they can go true-then-false again, so are only
+  guaranteed to unlock if `GET /streaks/statistics` happens to be called while true — which the
+  Dashboard's own load does, in practice, every visit).
+- **Freeze days are a flat, user-wide mechanic, not per-habit** — `FreezeDay` has no `habitId`
+  column (matching the milestone's own given field list), so spending one protects *every* active
+  daily habit's streak for that date at once, not a single habit's. A placeholder quota of 2 per
+  calendar month (`FREEZE_DAYS_PER_MONTH`) follows the same "documented placeholder, product owner
+  finalizes later" precedent `docs/03-assumptions.md` (#4) already sets.
+- **Overall consistency/streak/Perfect Day/Perfect Week/Perfect Month only consider active
+  DAILY-frequency habits.** WEEKLY/MONTHLY habits still earn their own per-habit period streak
+  (`GET /streaks/habits/:habitId`) and still count toward XP on every log, but a "did you succeed
+  today" flag doesn't mean anything for a habit that isn't due daily — folding them into the daily
+  metric would be either vacuously true or unfairly punitive. A user with zero active daily habits
+  gets `hasDailyHabits: false` and zeroed fields rather than a misleading `0`.
+- **XP is derived from completion *counts*, not a live event stream**: Task-completed × 10,
+  Habit-logged × 5, Routine-block-completed × 15 (routine steps themselves have no completion
+  field — see the note on Routine in `docs/06-database-design.md` — so this counts completed
+  `PlannerBlock` rows of type `ROUTINE` instead, the only completion signal that exists for
+  routines at all), Perfect-day × 50. No level system is built — the brief is explicit
+  ("prepare the foundation, don't build levels yet") — just a running total.
+- **A known, documented limitation**: `PlannerBlock` rows are deleted and rebuilt on every
+  `POST /planner/generate` (an existing, approved Milestone 7 behavior this milestone does not
+  change), so a regenerated day's prior completions no longer count toward Routine-completion XP
+  or the "Planner Master" achievement after that day is regenerated. Flagged for a future
+  dedicated completion-event ledger rather than worked around by changing Planner's behavior.
+- **Reused, not duplicated**: `PlannerService.countCompletedBlocks`/`TasksService.countCompleted`
+  are small additive exports (no existing behavior changed) that `StreaksService` reuses for
+  XP/achievement totals, per `docs/05-architecture.md`'s "reuse services" rule.
+  `planner/utils/timezone.util.ts` (Milestone 7) is reused as-is for every date/timezone
+  computation in Streaks, plus one additive export (`getZonedHour`, for the Morning
+  Warrior/Night Owl achievements) — the first time a util file is shared across module
+  boundaries via direct import rather than through the owning module's exported service, since
+  these are pure functions with no DI/state needs.
+- **Verification**: 68 new backend unit tests (streak-calculator/xp-calculator/achievement
+  definitions/FreezeDaysService/AchievementsService/StreaksService/all three controllers) plus the
+  existing 248 all pass; 16 new frontend unit tests (API service/store/display-util) plus the
+  existing 178 all pass. The running backend was exercised directly against a live Postgres
+  database via curl (habit creation → log → streak/statistics/achievements/freeze-day endpoints,
+  including a 409 on double-freezing a date and a 404-not-403 cross-user check), and the frontend
+  was driven end-to-end with a headless Chromium session (register → create + log a habit →
+  Streak Dashboard → Achievement Gallery → Dashboard), confirming real data renders in all four
+  places with no console errors.
+
 ## Milestone 7 — Daily Planner & Time Blocking (2026-07-03)
 
 Production-ready Daily Planner: backend `PlannerDay`/`PlannerBlock` module (8 endpoints, including

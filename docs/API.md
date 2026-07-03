@@ -99,7 +99,39 @@ within a fixed `07:00`–`22:00` window and a configurable buffer — see `Plann
 rule, not an oversight: a TASK block's `completed` flag is independent of the underlying Task's
 `status`. A user who wants the Task itself marked done does so from the Tasks feature directly.
 
+## Streaks (Milestone 8)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/streaks` | Overall current/longest streak across active DAILY habits, plus a per-habit streak summary for every active habit. |
+| GET | `/streaks/today` | Today's streak-relevant snapshot — completed/remaining daily habits, whether today is already successful, freeze status. |
+| GET | `/streaks/statistics` | The Dashboard/Streak Dashboard's one-call source: streaks, weekly/monthly consistency, success rate, perfect week/month, XP, totals, freeze-day summary, and a trailing daily history for the heatmaps. **Also the endpoint that evaluates and unlocks achievements** — see the note below. |
+| GET | `/streaks/habits/:habitId` | One habit's own streak — day-level for DAILY habits, calendar-week/month-level for WEEKLY/MONTHLY, plus its recent period history. |
+
+## Achievements (Milestone 8)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/achievements` | The full, data-driven achievement catalog, each with the requesting user's own `unlocked`/`unlockedAt`. |
+| GET | `/achievements/unlocked` | Just the achievements this user has unlocked. |
+
+**Achievements unlock as a side effect of `GET /streaks/statistics`**, not a live event
+subscription — see `docs/05-architecture.md`. `PERFECT_WEEK`/`PERFECT_MONTH` are the one pair whose
+condition can go true-then-false again as the week/month moves on, so they're only guaranteed to
+unlock if that endpoint happens to be called while the condition holds; every other achievement
+(streak/completion-count-based) only ever grows toward its threshold, so a later call always
+"catches" it.
+
+## Freeze Days (Milestone 8)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/freeze-days/use` | Spends one of a small monthly quota (2, a documented placeholder) of "streak freeze" days to protect a calendar date (defaults to today) from breaking the day-level consistency streak. 409 if that date is already frozen or the month's quota is exhausted; 400 for a future date. |
+
 ## Not yet implemented
 
-Streaks, Journal, Goals, Calendar, Notifications, AI Coach, Analytics, Gamification, Subscriptions,
-Admin — see `docs/09-roadmap.md` for milestone sequencing.
+Journal, Goals, Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see
+`docs/09-roadmap.md` for milestone sequencing. XP/achievements are the beginning of
+"Gamification," per that roadmap's Phase 3, but a level system, badges beyond the fixed
+`Achievement` catalog, and daily/weekly Challenges remain unbuilt (see the note on Milestone 8 in
+`docs/changelog.md`).

@@ -11,5 +11,8 @@ import { PlannerService } from './planner.service.js';
   imports: [TasksModule, RoutinesModule, HabitsModule],
   controllers: [PlannerController],
   providers: [PlannerService],
+  // Exported so StreaksModule (Milestone 8) can reuse countCompletedBlocks for its XP
+  // calculation and "Planner Master" achievement instead of duplicating that Prisma query.
+  exports: [PlannerService],
 })
 export class PlannerModule {}

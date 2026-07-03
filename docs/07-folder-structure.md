@@ -67,6 +67,7 @@ src/
 - **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Routines, Habits, and Schedule have since been built; Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 7) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
 - **Milestone 5 (Routines)** added a nav item (`Routines`, in `layout/sidenav/nav-items.ts`) that wasn't part of the original 8-item nav list from Milestone 3 — the module wasn't planned for at that point. Its `features/routines/` follows the per-feature convention below, plus a `components/routine-step-form-dialog/` (add/edit a single step — presentation-only, no API calls of its own) alongside the list/detail/editor pages.
 - **Milestone 6 (Habits)** reused the `Habits` nav item that was already in Milestone 3's original list (unlike Routines, no nav change was needed). `features/habits/` follows the per-feature convention below with four pages (list/detail/today/history — see the backend section's note on `modules/habits/` for why "today" and "history" are dedicated endpoints rather than client-side filters) and six new reusable components (`habit-card`, `habit-progress-ring`, `habit-calendar-heatmap`, `habit-completion-button`, `habit-statistics-card`, `habit-filter-panel`); a seventh from the brief, "Habit Empty State", is deliberately *not* a new component — it reuses `shared/components/empty-state/empty-state`, per this milestone's explicit "do not duplicate code" instruction, since Task/Routine already established that shared component as the presentational empty-state pattern.
+- **Milestone 8 (Streaks)** added a new nav item (`Streaks`, like Routines before it — no pre-existing placeholder pointed at `/streaks`). `features/streaks/` follows the per-feature convention below with two pages (Streak Dashboard at `''`, Achievement Gallery at `achievements`) and nine presentational components (`streak-card`, `current-streak`, `longest-streak`, `achievement-card`, `xp-progress`, `weekly-heatmap`, `monthly-heatmap`, `success-meter`, `consistency-ring`). `weekly-heatmap`/`monthly-heatmap` are thin wrappers around Habits' own `habit-calendar-heatmap` (different data window, same grid-rendering component — cross-feature component reuse, the same precedent the Dashboard already set by importing Planner/Routine utils) rather than a second heatmap implementation; `consistency-ring` likewise wraps Habits' `habit-progress-ring`. `utils/streak-display.ts` reuses Habits' own `heatmapLevel` grading function for the same reason. The main Dashboard (`features/dashboard/`) gained `services/dashboard-streaks.service.ts`, following the same "one endpoint, several derived widgets" shape `DashboardHabitStatsService`/`DashboardPlannerService` already established, replacing its last placeholder stat card with seven real ones.
 - **Milestone 7 (Daily Planner)** also reused an existing nav item — `Schedule`, already in Milestone 3's original list pointing at the placeholder — rather than adding a new `Planner` one, so `features/planner/`'s routes mount at the pre-existing `/schedule` URL. Its three pages (Planner Dashboard, Day View, Week View) and nine components go beyond the per-feature convention below with a `state/` `PlannerStore` (one currently-viewed day, not a list) and a `services/planner-block-actions.service.ts` — a second service alongside the usual thin API wrapper, holding the dialog/confirm/store/snackbar orchestration every planner-consuming page needs (Planner Dashboard, Day View, and the main app Dashboard's own planner widgets), so that logic isn't duplicated per page. The main Dashboard (`features/dashboard/`) also gained a `components/planner-timeline-card/` and `services/dashboard-planner.service.ts`, following the same "one endpoint, several derived widgets" shape `DashboardHabitStatsService` already established for `GET /habits/summary`.
 
 **Per-feature folder convention** (e.g., `features/habits/`):
@@ -185,6 +186,25 @@ the first module to import three sibling modules' services (`TasksModule`/`Routi
 `jobs/`/`events/` folders this doc's original plan listed at the `src/` root remain unbuilt: they
 were speculative infrastructure for BullMQ-based background processing, which Milestone 7's
 generator doesn't need (it's a synchronous request/response operation, not a queued job).
+
+**As implemented (Milestone 8 — `modules/streaks/`):** one module, three controllers
+(`StreaksController` at `/streaks`, `AchievementsController` at `/achievements`,
+`FreezeDaysController` at `/freeze-days`) and three services (`StreaksService`,
+`AchievementsService`, `FreezeDaysService`) — grouped together because Achievements and Freeze
+Days are the Streak Engine's own supporting concepts, not independent product modules, the same
+reasoning that keeps Routine's nested step endpoints inside `RoutinesController` rather than a
+separate `modules/routine-steps/`. A `utils/` (same "framework-free, unit-testable" idea as
+Planner's) holds `streak-calculator.util.ts` (day/period-level consistency math — current/longest
+streak, weekly/monthly consistency, success rate, perfect week/month), `xp-calculator.util.ts`,
+and `achievement-definitions.ts` (the single data-driven source of truth for the achievement
+catalog — see `docs/06-database-design.md`'s note on `Achievement`). Unlike Planner, `StreaksModule`
+does **not** import `HabitsModule`: `Habit`/`HabitLog` are this module's own primary domain
+(`StreaksService` queries them directly via `PrismaService`, the same way `HabitsService` itself
+does), while `TasksModule`/`PlannerModule` *are* imported so `TasksService.countCompleted`/
+`PlannerService.countCompletedBlocks` (both small additive exports, no existing behavior changed)
+can be reused for XP/achievement totals — see `docs/05-architecture.md` for the full "reuse
+services, don't duplicate the query" rationale. `planner/utils/timezone.util.ts` is reused
+directly (plus one additive export, `getZonedHour`) rather than duplicated or relocated.
 
 ## Root-level config
 

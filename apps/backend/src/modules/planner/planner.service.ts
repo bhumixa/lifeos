@@ -419,6 +419,28 @@ export class PlannerService {
     ]);
   }
 
+  /** Lifetime count of completed PlannerBlocks for this user, optionally narrowed to one
+   * `type` — powers StreaksService's XP calculation ("Routine Completed") and the "Planner
+   * Master" achievement (Milestone 8). Counts whatever blocks currently exist; PlannerBlock has
+   * no soft delete, and `generate()` deletes and rebuilds every TASK/ROUTINE/HABIT block on each
+   * call (see the class doc on `generate`), so a regenerated day's prior completions are no
+   * longer counted after that day is regenerated — a known limitation of building this on top of
+   * Planner's existing schema rather than a new persistent completion-event ledger, not something
+   * this milestone works around by changing Planner's own (already-approved) regeneration
+   * behavior. */
+  countCompletedBlocks(
+    userId: string,
+    type?: PlannerBlockType,
+  ): Promise<number> {
+    return this.prisma.plannerBlock.count({
+      where: {
+        completed: true,
+        plannerDay: { userId },
+        ...(type && { type }),
+      },
+    });
+  }
+
   private async getTimezone(userId: string): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -1,11 +1,14 @@
 /**
- * Zero-dependency IANA-timezone helpers for the Planner. No date library (date-fns-tz, luxon) is
- * installed in this repo yet, and this module's needs are narrow enough — "what's today in this
- * user's zone" and "what UTC instant is 08:00 local on this date" — that `Intl.DateTimeFormat`
+ * Zero-dependency IANA-timezone helpers, originally built for the Planner (Milestone 7) and
+ * reused as-is by the Streak Engine (Milestone 8, modules/streaks) — both need the same "what's
+ * today/this instant in this user's zone" primitives, and streak/day-boundary correctness is
+ * exactly the kind of subtly-easy-to-get-wrong logic docs/09-roadmap.md flags as worth sharing
+ * rather than re-deriving. No date library (date-fns-tz, luxon) is installed in this repo, and
+ * the needs stay narrow enough — "what's today in this zone", "what UTC instant is 08:00 local on
+ * this date", "what hour-of-day did this instant fall on locally" — that `Intl.DateTimeFormat`
  * (which already knows the full IANA tz database, DST rules included) covers them without adding
  * one. HabitsService/RoutinesService predate per-user timezone use entirely (see their comments);
- * this is the first module that actually needs it, per docs/09-roadmap.md's flagged risk that
- * streak/schedule timezone handling is easy to get subtly wrong.
+ * Planner was the first module that needed it, and Streaks is the second.
  */
 
 /** "YYYY-MM-DD" (en-CA formats in that exact order) for the given instant, as seen in `timeZone`. */
@@ -75,6 +78,19 @@ export function zonedWallTimeToUtc(
   const secondOffset = getOffsetMinutes(new Date(corrected), timeZone);
 
   return new Date(naiveUtc - secondOffset * 60_000);
+}
+
+/** The local hour-of-day (0-23) `instant` falls on in `timeZone` — used by the Streak Engine's
+ * "Morning Warrior"/"Night Owl" achievements to classify *when* a habit was logged, not just
+ * *whether*. Deliberately its own function rather than parsing it out of `getZonedDateString`'s
+ * output (that formatter only requests date parts, not time-of-day). */
+export function getZonedHour(instant: Date, timeZone: string): number {
+  const hour = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    hour: '2-digit',
+  }).format(instant);
+  return Number(hour);
 }
 
 /** Adds `minutes` to a Date, returning a new instance (Date is otherwise mutable in place). */

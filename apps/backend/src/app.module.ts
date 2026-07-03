@@ -7,6 +7,7 @@ import { HabitsModule } from './modules/habits/habits.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { PlannerModule } from './modules/planner/planner.module.js';
 import { RoutinesModule } from './modules/routines/routines.module.js';
+import { StreaksModule } from './modules/streaks/streaks.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
@@ -24,6 +25,7 @@ import { UsersModule } from './modules/users/users.module.js';
     RoutinesModule,
     HabitsModule,
     PlannerModule,
+    StreaksModule,
   ],
 })
 export class AppModule {}

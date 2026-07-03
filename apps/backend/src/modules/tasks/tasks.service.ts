@@ -135,4 +135,14 @@ export class TasksService {
       data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
     });
   }
+
+  /** Lifetime completed-task count for this user, excluding soft-deleted tasks (same
+   * `deletedAt: null` convention every other query in this service uses) — powers
+   * StreaksService's XP calculation and the "Task Crusher" achievement (Milestone 8) without it
+   * duplicating this service's own ownership-scoped Prisma query. */
+  countCompleted(userId: string): Promise<number> {
+    return this.prisma.task.count({
+      where: { userId, status: TaskStatus.COMPLETED, deletedAt: null },
+    });
+  }
 }
