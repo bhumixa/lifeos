@@ -1,0 +1,20 @@
+.habit-progress-ring {
+  transform: rotate(-90deg);
+
+  &__track {
+    stroke: var(--mat-sys-surface-variant, #e0e0e0);
+  }
+
+  &__value {
+    transition: stroke-dashoffset 0.3s ease;
+  }
+
+  &__label {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: rotate(90deg);
+    fill: var(--mat-sys-on-surface, currentcolor);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+}

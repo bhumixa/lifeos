@@ -1,0 +1,31 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Quick Complete</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="habits-quick-complete">
+    @if (loading()) {
+      <p class="habits-quick-complete__hint">Loading…</p>
+    } @else if (habits().length === 0) {
+      <p class="habits-quick-complete__hint">No active habits yet.</p>
+    } @else {
+      @for (habit of habits(); track habit.id) {
+        <div class="habits-quick-complete__row">
+          <div class="habits-quick-complete__icon" [style.background]="habit.color">
+            {{ habit.name.charAt(0) }}
+          </div>
+          <span class="habits-quick-complete__name">{{ habit.name }}</span>
+          <app-habit-completion-button
+            [completedToday]="habit.completedToday"
+            [todayCount]="habit.todayCount"
+            [targetCount]="habit.targetCount"
+            (complete)="complete(habit)"
+            (undo)="undo(habit)"
+          />
+        </div>
+      }
+    }
+  </mat-card-content>
+  <mat-card-actions align="end">
+    <a mat-button routerLink="/habits">View all</a>
+  </mat-card-actions>
+</mat-card>

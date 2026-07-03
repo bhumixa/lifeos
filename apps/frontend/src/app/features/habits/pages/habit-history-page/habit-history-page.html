@@ -1,0 +1,70 @@
+<section class="habit-history-page">
+  <header class="habit-history-page__header">
+    <h1>Habit History</h1>
+
+    @if (habits().length > 0) {
+      <mat-form-field appearance="outline" class="habit-history-page__select">
+        <mat-label>Habit</mat-label>
+        <mat-select [ngModel]="selectedHabitId()" (ngModelChange)="onHabitChange($event)">
+          @for (habit of habits(); track habit.id) {
+            <mat-option [value]="habit.id">{{ habit.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+  </header>
+
+  @if (habits().length === 0 && !loading()) {
+    <app-empty-state icon="history" title="No habits yet" message="Create a habit first to see its history here." />
+  } @else if (selectedHabit(); as habit) {
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Last {{ 84 }} days</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <app-habit-calendar-heatmap [cells]="heatmapCells()" [color]="habit.color" />
+      </mat-card-content>
+    </mat-card>
+
+    @if (error(); as message) {
+      <div class="habit-history-page__error">
+        <p>{{ message }}</p>
+        <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+      </div>
+    } @else if (loading()) {
+      <div class="habit-history-page__skeletons">
+        @for (row of [0, 1, 2]; track row) {
+          <app-skeleton height="56px" />
+        }
+      </div>
+    } @else if (isEmpty()) {
+      <app-empty-state icon="event_busy" title="No logs yet" message="Complete this habit to start building history." />
+    } @else {
+      <div class="habit-history-page__log-list">
+        @for (log of logs(); track log.id) {
+          <div class="habit-history-page__log-row">
+            <span class="habit-history-page__log-date">{{ log.date }}</span>
+            <span class="habit-history-page__log-count">{{ log.completedCount }} of {{ habit.targetCount }}</span>
+            @if (log.notes) {
+              <span class="habit-history-page__log-notes">{{ log.notes }}</span>
+            }
+            <button type="button" mat-icon-button aria-label="Edit log" (click)="editLog(log)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button type="button" mat-icon-button aria-label="Delete log" (click)="deleteLog(log)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+
+      <mat-paginator
+        [length]="meta().total"
+        [pageSize]="meta().pageSize"
+        [pageIndex]="meta().page - 1"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)"
+      />
+    }
+  }
+</section>

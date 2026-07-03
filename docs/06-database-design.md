@@ -176,6 +176,60 @@ Streak
   updatedAt
 ```
 
+> **As implemented (Milestone 6 — Habit Tracker):** `Habit`/`HabitLog` follow that milestone's
+> simplified field set rather than the shape above:
+>
+> ```
+> Habit
+>   id                uuid PK
+>   userId            FK -> User
+>   name              string
+>   description        string, nullable
+>   icon              string   -- Material icon name
+>   color             string   -- hex or design-token name
+>   targetFrequency   enum(DAILY, WEEKLY, MONTHLY)
+>   targetCount       int, default 1   -- "do this N times per period" — covers boolean habits
+>                                       -- (targetCount: 1) and quantifiable ones alike
+>   category          string, nullable
+>   reminderTime      string, nullable   -- "HH:mm", same convention as RoutineStep.startTime
+>   isActive          boolean, default true
+>   createdAt / updatedAt / deletedAt
+>   -- unique (userId, name)
+>
+> HabitLog
+>   id                uuid PK
+>   habitId           FK -> Habit
+>   date              date   -- at most one log per habit per date
+>   completedCount    int, default 1
+>   notes             string, nullable
+>   createdAt
+>   -- unique (habitId, date)
+> ```
+>
+> - **`targetFrequency`/`targetCount` replace `isQuantifiable`/`unit`**: this milestone's brief
+>   specified `DAILY | WEEKLY | MONTHLY` (not this doc's `DAILY, WEEKLY, CUSTOM` + JSON rule) and a
+>   `targetCount`, so "8 glasses of water" is `targetCount: 8` over `DAILY` and "gym 3x" is
+>   `targetCount: 3` over `WEEKLY` — one field pair instead of two, with no CUSTOM-rule JSON blob.
+> - **`HabitLog.completedCount`/`notes` replace `completed`/`value`**: a single numeric field
+>   covers both "did it" (completedCount: 1) and "how much" (completedCount: 8) without a separate
+>   boolean, matching the milestone's given field list exactly.
+> - **Soft delete, like Task**: this doc's design principle names Habit explicitly, so `deletedAt`
+>   is kept (unlike Routine, which isn't named and uses a hard delete).
+> - **No completion/streak columns on Habit or HabitLog.** "Today's completion status" and every
+>   completion percentage the API returns (`currentPeriodCount`, `completionPercent`,
+>   `todayCount`, `completedToday`) are computed from `HabitLog` on every read, not stored — the
+>   same "computed, not persisted" choice Milestone 5 made for Routine's completion %, and
+>   consistent with this doc's own principle that `Streak` is a derived rollup over the log, never
+>   a source of truth. Actual streak *tracking* — `Streak`, `currentStreak`/`longestStreak`,
+>   freeze/recovery — is explicitly out of scope for Milestone 6 (deferred to Milestone 7's Streak
+>   Engine, per that milestone's brief).
+> - **`(userId, name)` uniqueness** backs "validate duplicate habit names per user": `HabitsService`
+>   checks it first (a friendly 409) with the DB constraint as a last-resort backstop against a
+>   create/create race.
+> - **`(habitId, date)` uniqueness** backs "prevent multiple logs for the same habit/date" at the
+>   database level — `POST /habits/:id/log` rejects a second log for a date that already has one
+>   (409, pointing at `PATCH` instead) rather than silently overwriting it.
+
 ### Reflection & goals
 
 ```

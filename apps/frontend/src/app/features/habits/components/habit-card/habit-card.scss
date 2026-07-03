@@ -1,0 +1,39 @@
+.habit-card__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.habit-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.habit-card__name {
+  margin: 0;
+  font-weight: 500;
+}
+
+.habit-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.habit-card__meta {
+  margin: 0.35rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.habit-card--inactive {
+  opacity: 0.6;
+}

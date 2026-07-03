@@ -1,0 +1,39 @@
+.habits-quick-complete {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.habits-quick-complete__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.habits-quick-complete__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.habits-quick-complete__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habits-quick-complete__hint {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}

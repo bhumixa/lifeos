@@ -4,10 +4,10 @@ import { authGuard } from './core/auth/auth.guard';
 /**
  * Every non-auth route renders inside layout/shell/shell.ts. Sections whose feature module
  * hasn't been built yet (see docs/09-roadmap.md for the phase each one belongs to) use the
- * shared FeaturePlaceholder component; Tasks (Milestone 4) is the first to have a real feature
- * module, lazy-loaded via its own tasksRoutes. `data.breadcrumb`/`data.icon` feed both the
- * sidenav (layout/sidenav/nav-items.ts) and BreadcrumbService — keep labels in sync with
- * nav-items.ts.
+ * shared FeaturePlaceholder component; Tasks (Milestone 4), Routines (Milestone 5), and Habits
+ * (Milestone 6) each have a real feature module, lazy-loaded via their own `*Routes`.
+ * `data.breadcrumb`/`data.icon` feed both the sidenav (layout/sidenav/nav-items.ts) and
+ * BreadcrumbService — keep labels in sync with nav-items.ts.
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -41,9 +41,7 @@ export const routes: Routes = [
       },
       {
         path: 'habits',
-        data: { breadcrumb: 'Habits', icon: 'repeat' },
-        loadComponent: () =>
-          import('./shared/components/feature-placeholder/feature-placeholder').then((m) => m.FeaturePlaceholder),
+        loadChildren: () => import('./features/habits/habits.routes').then((m) => m.habitsRoutes),
       },
       {
         path: 'journal',

@@ -52,7 +52,7 @@
 
 One NestJS deployable (plus a worker process sharing the same codebase and Prisma client) with strict module boundaries:
 
-`auth`, `users`, `tasks`, `routines` (Morning/Evening/Custom routine templates — added in Milestone 5, see docs/06-database-design.md's note on Routine), `planner` (schedule blocks/templates), `habits`, `streaks`, `journal`, `goals`, `calendar`, `notifications`, `ai-coach`, `analytics`, `gamification`, `subscriptions`, `admin`.
+`auth`, `users`, `tasks`, `routines` (Morning/Evening/Custom routine templates — added in Milestone 5, see docs/06-database-design.md's note on Routine), `planner` (schedule blocks/templates), `habits` (Habit/HabitLog — added in Milestone 6, see docs/06-database-design.md's note on Habit), `streaks`, `journal`, `goals`, `calendar`, `notifications`, `ai-coach`, `analytics`, `gamification`, `subscriptions`, `admin`.
 
 **Why not microservices at MVP:** the product's modules are highly relational (a completed task affects streaks, which affects XP, which affects badges, which affects the dashboard) — splitting these into separate services now would mean distributed transactions and network calls for what are currently simple in-process operations. Extract a service only when a concrete scaling or team-ownership need appears (the AI-coach module, being the most latency/cost-sensitive, is the most plausible first candidate to extract later).
 

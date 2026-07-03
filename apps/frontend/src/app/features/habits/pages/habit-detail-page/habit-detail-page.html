@@ -1,0 +1,64 @@
+@if (loading()) {
+  <div class="habit-detail-page__skeletons">
+    <app-skeleton height="120px" />
+    <app-skeleton height="160px" />
+  </div>
+} @else if (error(); as message) {
+  <div class="habit-detail-page__error">
+    <p>{{ message }}</p>
+    <button type="button" mat-stroked-button (click)="back()">Back to habits</button>
+  </div>
+} @else if (habit(); as current) {
+  <section class="habit-detail-page">
+    <button type="button" mat-button class="habit-detail-page__back" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to habits
+    </button>
+
+    <mat-card appearance="outlined">
+      <mat-card-content class="habit-detail-page__header">
+        <div class="habit-detail-page__icon" [style.background]="current.color">
+          <mat-icon>{{ current.icon }}</mat-icon>
+        </div>
+        <div class="habit-detail-page__title">
+          <h1>{{ current.name }}</h1>
+          @if (current.description) {
+            <p class="habit-detail-page__description">{{ current.description }}</p>
+          }
+        </div>
+        <app-habit-completion-button
+          [completedToday]="current.completedToday"
+          [todayCount]="current.todayCount"
+          [targetCount]="current.targetCount"
+          (complete)="quickComplete()"
+          (undo)="undoToday()"
+        />
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button type="button" mat-button (click)="openLogDialog()">
+          <mat-icon>edit_calendar</mat-icon>
+          Log a date
+        </button>
+        <button type="button" mat-button (click)="edit()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button type="button" mat-button color="warn" (click)="delete()">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <app-habit-statistics-card [habit]="current" [loggedDays]="loggedDays()" [windowDays]="historyWindowDays" />
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Last {{ historyWindowDays }} days</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <app-habit-calendar-heatmap [cells]="heatmapCells()" [color]="current.color" />
+      </mat-card-content>
+    </mat-card>
+  </section>
+}

@@ -1,0 +1,50 @@
+<div class="habit-filter-panel">
+  <mat-form-field appearance="outline" class="habit-filter-panel__search">
+    <mat-label>Search habits</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput [ngModel]="searchTerm" (ngModelChange)="onSearchInput($event)" placeholder="Name" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="habit-filter-panel__filter">
+    <mat-label>Status</mat-label>
+    <mat-select [ngModel]="activeFilter" (ngModelChange)="onActiveFilterChange($event)">
+      <mat-option value="all">All</mat-option>
+      <mat-option value="active">Active</mat-option>
+      <mat-option value="inactive">Inactive</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="habit-filter-panel__filter">
+    <mat-label>Frequency</mat-label>
+    <mat-select [ngModel]="targetFrequency" (ngModelChange)="onFrequencyChange($event)">
+      <mat-option value="">All frequencies</mat-option>
+      @for (entry of frequencies; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="habit-filter-panel__filter">
+    <mat-label>Category</mat-label>
+    <input matInput [ngModel]="category" (ngModelChange)="onCategoryInput($event)" placeholder="e.g. Health" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="habit-filter-panel__filter">
+    <mat-label>Sort by</mat-label>
+    <mat-select [ngModel]="sortBy" (ngModelChange)="onSortByChange($event)">
+      <mat-option value="createdAt">Created</mat-option>
+      <mat-option value="name">Name</mat-option>
+      <mat-option value="completionPercent">Completion %</mat-option>
+      <mat-option value="targetFrequency">Frequency</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <button
+    type="button"
+    mat-icon-button
+    [attr.aria-label]="sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'"
+    (click)="onSortOrderToggle()"
+  >
+    <mat-icon>{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+  </button>
+</div>

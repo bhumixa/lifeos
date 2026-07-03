@@ -4,9 +4,11 @@ import { interval, map, startWith } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
+import { HabitsQuickComplete } from '../../components/habits-quick-complete/habits-quick-complete';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
+import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
 
 interface DashboardStat {
@@ -15,23 +17,24 @@ interface DashboardStat {
   icon: string;
 }
 
-// Habits/streaks/focus-time modules don't exist yet, so these stay placeholders — only the task
-// stats (wired in ngOnInit below) show real numbers as of Milestone 4.
+// Best Habit Streak is explicitly deferred to Milestone 7's Streak Engine — nothing computes it
+// yet, so it stays a placeholder even though Habits' own three cards are now real (Milestone 6).
+// Focus Time has no owning module yet either.
 const PLACEHOLDER_STATS: DashboardStat[] = [
-  { label: 'Habits Completed', value: '—', icon: 'repeat' },
-  { label: 'Current Streak', value: '—', icon: 'local_fire_department' },
+  { label: 'Best Habit Streak', value: '—', icon: 'local_fire_department' },
   { label: 'Focus Time', value: '—', icon: 'timer' },
 ];
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [Skeleton, StatCard, QuickActions, RoutineSummaryCard, RecentActivity],
+  imports: [Skeleton, StatCard, QuickActions, RoutineSummaryCard, HabitsQuickComplete, RecentActivity],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
 export class DashboardPage implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly dashboardTaskStats = inject(DashboardTaskStatsService);
+  private readonly dashboardHabitStats = inject(DashboardHabitStatsService);
 
   protected readonly user = this.authService.user;
   protected readonly placeholderStats = PLACEHOLDER_STATS;
@@ -41,6 +44,13 @@ export class DashboardPage implements OnInit {
     { label: "Today's Tasks", value: '—', icon: 'checklist' },
     { label: 'Upcoming Tasks', value: '—', icon: 'upcoming' },
     { label: 'Completed Today', value: '—', icon: 'task_alt' },
+  ]);
+
+  protected readonly habitStatsLoading = signal(true);
+  protected readonly habitStats = signal<DashboardStat[]>([
+    { label: 'Habits Completed Today', value: '—', icon: 'repeat' },
+    { label: 'Total Active Habits', value: '—', icon: 'checklist_rtl' },
+    { label: 'Completion Percentage', value: '—', icon: 'percent' },
   ]);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
@@ -80,6 +90,18 @@ export class DashboardPage implements OnInit {
       // Falls back to the "—" placeholders already set above — a stats-loading failure
       // shouldn't block the rest of the dashboard from rendering.
       error: () => this.taskStatsLoading.set(false),
+    });
+
+    this.dashboardHabitStats.load().subscribe({
+      next: (stats) => {
+        this.habitStats.set([
+          { label: 'Habits Completed Today', value: String(stats.habitsCompletedToday), icon: 'repeat' },
+          { label: 'Total Active Habits', value: String(stats.totalActiveHabits), icon: 'checklist_rtl' },
+          { label: 'Completion Percentage', value: `${stats.completionPercentage}%`, icon: 'percent' },
+        ]);
+        this.habitStatsLoading.set(false);
+      },
+      error: () => this.habitStatsLoading.set(false),
     });
   }
 

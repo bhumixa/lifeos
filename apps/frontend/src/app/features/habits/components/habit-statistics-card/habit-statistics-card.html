@@ -1,0 +1,30 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Statistics</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="habit-stats">
+    <div class="habit-stats__ring">
+      <app-habit-progress-ring [percent]="habit().completionPercent" [color]="habit().color" [size]="88" />
+      <p class="habit-stats__ring-label">
+        {{ habit().currentPeriodCount }} of {{ habit().targetCount }} {{ periodLabel() }}
+      </p>
+    </div>
+
+    <div class="habit-stats__facts">
+      <div class="habit-stats__fact">
+        <span class="habit-stats__fact-label">Frequency</span>
+        <app-badge [label]="frequencyLabel()" [variant]="frequencyVariant()" />
+      </div>
+      <div class="habit-stats__fact">
+        <span class="habit-stats__fact-label">Logged days</span>
+        <span>{{ loggedDays() }} of last {{ windowDays() }} ({{ loggedRate() }}%)</span>
+      </div>
+      @if (habit().category; as category) {
+        <div class="habit-stats__fact">
+          <span class="habit-stats__fact-label">Category</span>
+          <span>{{ category }}</span>
+        </div>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,11 @@
+.habit-log-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 320px;
+  max-width: 100%;
+}
+
+.habit-log-form__full {
+  width: 100%;
+}

@@ -14,6 +14,15 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
+    @if (habitStatsLoading()) {
+      @for (i of [0, 1, 2]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of habitStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
     @for (stat of placeholderStats; track stat.label) {
       <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
     }
@@ -22,6 +31,7 @@
   <div class="dashboard__panels">
     <app-quick-actions />
     <app-routine-summary />
+    <app-habits-quick-complete />
     <app-recent-activity />
   </div>
 </section>

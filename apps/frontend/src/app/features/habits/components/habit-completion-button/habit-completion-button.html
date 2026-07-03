@@ -1,0 +1,25 @@
+@if (completedToday()) {
+  <button
+    type="button"
+    mat-stroked-button
+    color="primary"
+    class="habit-completion-button habit-completion-button--done"
+    matTooltip="Undo today's log"
+    (click)="undo.emit()"
+  >
+    <mat-icon>check_circle</mat-icon>
+    {{ todayCount() }}/{{ targetCount() }}
+  </button>
+} @else {
+  <button
+    type="button"
+    mat-flat-button
+    color="primary"
+    class="habit-completion-button"
+    matTooltip="Mark complete for today"
+    (click)="complete.emit()"
+  >
+    <mat-icon>radio_button_unchecked</mat-icon>
+    Complete
+  </button>
+}

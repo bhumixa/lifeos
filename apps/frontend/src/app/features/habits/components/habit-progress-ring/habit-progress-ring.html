@@ -1,0 +1,30 @@
+<svg
+  class="habit-progress-ring"
+  [attr.width]="size()"
+  [attr.height]="size()"
+  [attr.viewBox]="'0 0 ' + size() + ' ' + size()"
+>
+  <circle
+    class="habit-progress-ring__track"
+    [attr.cx]="center()"
+    [attr.cy]="center()"
+    [attr.r]="radius()"
+    fill="none"
+    stroke-width="4"
+  />
+  <circle
+    class="habit-progress-ring__value"
+    [attr.cx]="center()"
+    [attr.cy]="center()"
+    [attr.r]="radius()"
+    fill="none"
+    stroke-width="4"
+    stroke-linecap="round"
+    [attr.stroke]="color()"
+    [attr.stroke-dasharray]="circumference()"
+    [attr.stroke-dashoffset]="dashOffset()"
+  />
+  <text class="habit-progress-ring__label" [attr.x]="center()" [attr.y]="center()" text-anchor="middle" dominant-baseline="central">
+    {{ percent() }}%
+  </text>
+</svg>

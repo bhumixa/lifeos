@@ -1,0 +1,18 @@
+<div class="habit-heatmap">
+  @for (week of weeks(); track $index) {
+    <div class="habit-heatmap__week">
+      @for (cell of week; track $index) {
+        @if (cell) {
+          <div
+            class="habit-heatmap__cell"
+            [style.background]="color()"
+            [style.opacity]="opacityFor(cell.level)"
+            [matTooltip]="cell.date + ': ' + cell.completedCount"
+          ></div>
+        } @else {
+          <div class="habit-heatmap__cell habit-heatmap__cell--empty"></div>
+        }
+      }
+    </div>
+  }
+</div>

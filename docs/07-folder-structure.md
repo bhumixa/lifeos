@@ -64,8 +64,9 @@ src/
 **Deviations from the plan above, made during implementation:**
 - `core/interceptors/` was folded into `core/auth/` — the only interceptor built so far (attaching/refreshing the access token) is inherently auth-specific, not a generic cross-cutting concern. A true cross-cutting interceptor (e.g. a future global error-toast) would still get its own `core/interceptors/`.
 - `core/layout/` was added (not in the original plan) once shell-wide state (sidenav collapse, mobile drawer, breadcrumbs) needed a home distinct from `core/services/`'s generic API clients.
-- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks and Routines have since been built; Schedule, Habits, Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 5) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
+- **Placeholder pattern**: nav sections whose feature module doesn't exist yet (Tasks, Routines, and Habits have since been built; Schedule, Journal, AI Coach, Analytics, Settings remain placeholders as of Milestone 6) route to one shared `shared/components/feature-placeholder/`, driven by route `data`, rather than each getting an empty `features/<name>/` folder. Each gets its real feature folder (matching the per-feature convention below) when its milestone starts.
 - **Milestone 5 (Routines)** added a nav item (`Routines`, in `layout/sidenav/nav-items.ts`) that wasn't part of the original 8-item nav list from Milestone 3 — the module wasn't planned for at that point. Its `features/routines/` follows the per-feature convention below, plus a `components/routine-step-form-dialog/` (add/edit a single step — presentation-only, no API calls of its own) alongside the list/detail/editor pages.
+- **Milestone 6 (Habits)** reused the `Habits` nav item that was already in Milestone 3's original list (unlike Routines, no nav change was needed). `features/habits/` follows the per-feature convention below with four pages (list/detail/today/history — see the backend section's note on `modules/habits/` for why "today" and "history" are dedicated endpoints rather than client-side filters) and six new reusable components (`habit-card`, `habit-progress-ring`, `habit-calendar-heatmap`, `habit-completion-button`, `habit-statistics-card`, `habit-filter-panel`); a seventh from the brief, "Habit Empty State", is deliberately *not* a new component — it reuses `shared/components/empty-state/empty-state`, per this milestone's explicit "do not duplicate code" instruction, since Task/Routine already established that shared component as the presentational empty-state pattern.
 
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
@@ -155,6 +156,19 @@ difference driven by the backend not having a "replace all steps" bulk endpoint:
 Editor page persists each step add/edit/delete/reorder immediately in edit mode, but batches
 everything into one `POST /routines` call in create mode (see the comment atop
 `routine-editor-page.ts`).
+
+**As implemented (Milestone 6 — `modules/habits/`):** same convention as `tasks/`/`routines/`,
+also building its own response shape (`HabitResponseDto`) since `currentPeriodCount`/
+`completionPercent`/`todayCount`/`completedToday` are computed from `HabitLog` on every read (see
+`docs/06-database-design.md`'s note on Habit). Three read endpoints beyond plain CRUD —
+`GET /habits/today`, `GET /habits/summary`, `GET /habits/history` — live in the same
+controller/service rather than separate modules, mirroring how Routine's nested step endpoints
+stay in `RoutinesController`: each is a different *view* over the same Habit/HabitLog data (an
+actionable-today list, a dashboard aggregate, and a paginated log timeline for the Habit History
+page and Calendar Heatmap), not an independently addressable resource. `HabitLog` mutations
+(`POST`/`PATCH`/`DELETE /habits/:id/log`) identify the target row by date rather than by log ID —
+a habit has at most one log per date (enforced by a DB unique constraint), so the date alone is
+enough, and it keeps the frontend from having to track log IDs just to log "today."
 
 ## Root-level config
 

@@ -1,0 +1,32 @@
+<section class="today-habits-page">
+  <header class="today-habits-page__header">
+    <h1>Today's Habits</h1>
+  </header>
+
+  @if (error(); as message) {
+    <div class="today-habits-page__error">
+      <p>{{ message }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (loading()) {
+    <div class="today-habits-page__skeletons">
+      @for (row of skeletonRows; track $index) {
+        <app-skeleton height="88px" />
+      }
+    </div>
+  } @else if (isEmpty()) {
+    <app-empty-state icon="task_alt" title="No active habits" message="Activate or create a habit to see it here." />
+  } @else {
+    <div class="today-habits-page__list">
+      @for (habit of habits(); track habit.id) {
+        <app-habit-card
+          [habit]="habit"
+          (view)="viewHabit(habit)"
+          (toggleActive)="toggleActive(habit)"
+          (complete)="completeHabit(habit)"
+          (undo)="undoHabit(habit)"
+        />
+      }
+    </div>
+  }
+</section>

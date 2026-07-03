@@ -1,0 +1,29 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit log' : 'Log habit' }}</h2>
+
+<mat-dialog-content>
+  <form class="habit-log-form" [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="habit-log-form__full">
+      <mat-label>Date</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="date" />
+      <mat-datepicker-toggle matIconSuffix [for]="picker" [disabled]="isEdit" />
+      <mat-datepicker #picker />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="habit-log-form__full">
+      <mat-label>Completed count</mat-label>
+      <input matInput type="number" min="0" max="1000" formControlName="completedCount" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="habit-log-form__full">
+      <mat-label>Notes</mat-label>
+      <textarea matInput formControlName="notes" rows="3"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="submit()">
+    {{ isEdit ? 'Save log' : 'Add log' }}
+  </button>
+</mat-dialog-actions>

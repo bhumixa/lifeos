@@ -10,6 +10,9 @@
 // Milestone 5 (Routine Engine) adds Routine/RoutineStep — a new module not named in
 // docs/06-database-design.md (the closest existing concept is ScheduleTemplate's JSON blob);
 // see the comment on Routine for why it's modeled as first-class relational tables instead.
+// Milestone 6 (Habit Tracker) adds Habit/HabitLog, using that milestone's simplified field set
+// (targetFrequency/targetCount instead of docs/06-database-design.md's isQuantifiable/unit, and
+// completedCount/notes on HabitLog instead of completed/value) — see the comment on Habit.
 
 generator client {
   provider = "prisma-client-js"
@@ -52,6 +55,7 @@ model User {
   refreshTokens RefreshToken[]
   tasks         Task[]
   routines      Routine[]
+  habits        Habit[]
 
   @@map("users")
 }
@@ -161,4 +165,73 @@ model RoutineStep {
 
   @@index([routineId, order])
   @@map("routine_steps")
+}
+
+// Milestone 6's field list replaces docs/06-database-design.md's Habit shape
+// (targetFrequency enum(DAILY, WEEKLY, CUSTOM) + isQuantifiable/unit) with a simpler
+// targetFrequency(DAILY/WEEKLY/MONTHLY) + targetCount pair — "do this targetCount times per
+// period" covers both boolean habits (targetCount: 1) and quantifiable ones (e.g. targetCount: 8
+// for "8 glasses of water") without a separate isQuantifiable/unit pair. `reminderTime` reuses
+// RoutineStep's "HH:mm" string convention (time-of-day with no calendar date attached).
+// No completion/streak columns live here: "today's completion status" and the various
+// completion percentages the endpoints return are computed from HabitLog on every read — the
+// same "computed, not persisted" choice made for Routine's completion %, and consistent with
+// docs/06-database-design.md's own principle that Streak is derived state rolled up from a log,
+// not a source of truth in its own right. Actual streak *tracking* is Milestone 7's Streak
+// Engine — this milestone deliberately computes only same-period/same-day progress.
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Habit {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String
+  description     String?
+  icon            String
+  color           String
+  targetFrequency HabitFrequency @default(DAILY)
+  targetCount     Int            @default(1)
+  category        String?
+  // "HH:mm", 24-hour, local time-of-day — see the comment above for why not DateTime.
+  reminderTime String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete, per docs/06-database-design.md's design principles — Habit is named there
+  // explicitly, same as Task.
+  deletedAt DateTime?
+
+  logs HabitLog[]
+
+  // Backs "validate duplicate habit names per user": a habit named the same as one the user
+  // already has is rejected at the service layer with a friendly 409 (see HabitsService), and
+  // this constraint is the last-resort backstop against a race between two concurrent creates.
+  @@unique([userId, name])
+  @@index([userId, isActive])
+  @@map("habits")
+}
+
+model HabitLog {
+  id      String @id @default(uuid())
+  habitId String
+  habit   Habit  @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  // Date-only (no time-of-day) — a habit is logged at most once per calendar day, per the unique
+  // constraint below, regardless of what time that day the user actually did it.
+  date           DateTime @db.Date
+  completedCount Int      @default(1)
+  notes          String?
+
+  createdAt DateTime @default(now())
+
+  // Backs "prevent multiple logs for the same habit/date" at the database level.
+  @@unique([habitId, date])
+  @@index([habitId, date])
+  @@map("habit_logs")
 }

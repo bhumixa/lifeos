@@ -1,0 +1,89 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit habit' : 'New habit' }}</h2>
+
+<mat-dialog-content>
+  <form class="habit-form" [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="habit-form__full">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" autocomplete="off" />
+      @if (form.controls.name.hasError('required') && form.controls.name.touched) {
+        <mat-error>Name is required.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="habit-form__full">
+      <mat-label>Description</mat-label>
+      <textarea matInput formControlName="description" rows="2"></textarea>
+    </mat-form-field>
+
+    <div class="habit-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Icon</mat-label>
+        <mat-select formControlName="icon">
+          @for (icon of iconOptions; track icon) {
+            <mat-option [value]="icon">
+              <mat-icon>{{ icon }}</mat-icon>
+              {{ icon }}
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Color</mat-label>
+        <mat-select formControlName="color">
+          @for (color of colorOptions; track color) {
+            <mat-option [value]="color">
+              <span class="habit-form__swatch" [style.background]="color"></span>
+              {{ color }}
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="habit-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Frequency</mat-label>
+        <mat-select formControlName="targetFrequency">
+          @for (entry of frequencies; track entry[0]) {
+            <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Target count</mat-label>
+        <input matInput type="number" min="1" max="1000" formControlName="targetCount" />
+      </mat-form-field>
+    </div>
+
+    <div class="habit-form__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Category</mat-label>
+        <input matInput formControlName="category" placeholder="e.g. Health" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Reminder time</mat-label>
+        <input matInput type="time" formControlName="reminderTime" />
+      </mat-form-field>
+    </div>
+
+    <mat-slide-toggle formControlName="isActive">Active</mat-slide-toggle>
+
+    @if (errorMessage(); as message) {
+      <p class="habit-form__error" role="alert">{{ message }}</p>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" [disabled]="isSaving()" (click)="submit()">
+    @if (isSaving()) {
+      <mat-progress-spinner diameter="20" mode="indeterminate" />
+    } @else {
+      {{ isEdit ? 'Save changes' : 'Create habit' }}
+    }
+  </button>
+</mat-dialog-actions>
