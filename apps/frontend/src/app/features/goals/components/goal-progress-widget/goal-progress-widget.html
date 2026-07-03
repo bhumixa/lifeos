@@ -1,0 +1,8 @@
+<button type="button" class="goal-progress-widget" (click)="view.emit()">
+  <div class="goal-progress-widget__header">
+    <span class="goal-progress-widget__title">{{ goal().title }}</span>
+    <span class="goal-progress-widget__percent">{{ goal().progressPercent }}%</span>
+  </div>
+  <mat-progress-bar mode="determinate" [value]="goal().progressPercent" />
+  <span class="goal-progress-widget__meta">{{ progressText() }}</span>
+</button>

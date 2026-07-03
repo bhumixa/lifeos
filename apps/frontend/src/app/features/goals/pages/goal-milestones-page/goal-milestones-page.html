@@ -1,0 +1,38 @@
+@if (loading()) {
+  <div class="goal-milestones-page__skeletons">
+    <app-skeleton height="120px" />
+  </div>
+} @else if (error(); as message) {
+  <div class="goal-milestones-page__error">
+    <p>{{ message }}</p>
+    <button type="button" mat-stroked-button (click)="back()">Back to goals</button>
+  </div>
+} @else if (goal(); as current) {
+  <section class="goal-milestones-page">
+    <button type="button" mat-button class="goal-milestones-page__back" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to {{ current.title }}
+    </button>
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Milestones for {{ current.title }}</mat-card-title>
+        <mat-card-subtitle>{{ current.milestonesCompletedCount }} / {{ current.milestonesTotalCount }} completed</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <app-milestone-list
+          [milestones]="current.milestones"
+          (toggleCompleted)="toggleMilestone($event)"
+          (edit)="openEditDialog($event)"
+          (delete)="deleteMilestone($event)"
+        />
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button type="button" mat-stroked-button (click)="openAddDialog()">
+          <mat-icon>add</mat-icon>
+          Add milestone
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </section>
+}

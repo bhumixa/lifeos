@@ -1,0 +1,97 @@
+@if (loading()) {
+  <div class="goal-detail-page__skeletons">
+    <app-skeleton height="120px" />
+    <app-skeleton height="160px" />
+  </div>
+} @else if (error(); as message) {
+  <div class="goal-detail-page__error">
+    <p>{{ message }}</p>
+    <button type="button" mat-stroked-button (click)="back()">Back to goals</button>
+  </div>
+} @else if (goal(); as current) {
+  <section class="goal-detail-page">
+    <button type="button" mat-button class="goal-detail-page__back" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to goals
+    </button>
+
+    <mat-card appearance="outlined">
+      <mat-card-content class="goal-detail-page__header">
+        <div class="goal-detail-page__icon" [style.background]="current.color">
+          <mat-icon>{{ current.icon }}</mat-icon>
+        </div>
+        <div class="goal-detail-page__title">
+          <h1>{{ current.title }}</h1>
+          @if (current.description) {
+            <p class="goal-detail-page__description">{{ current.description }}</p>
+          }
+          <div class="goal-detail-page__badges">
+            <app-badge [label]="statusLabel()" [variant]="statusVariant()" />
+            <app-badge [label]="priorityLabel()" [variant]="priorityVariant()" />
+            @if (current.category; as category) {
+              <app-badge [label]="category" variant="neutral" />
+            }
+            @if (deadline(); as due) {
+              <app-badge [label]="due.label" [variant]="due.variant" />
+            }
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button type="button" mat-button [disabled]="refreshingProgress()" (click)="refreshProgress()">
+          <mat-icon>refresh</mat-icon>
+          Refresh progress
+        </button>
+        <button type="button" mat-button (click)="manageMilestones()">
+          <mat-icon>flag</mat-icon>
+          Milestones
+        </button>
+        <button type="button" mat-button (click)="edit()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        @if (current.archived) {
+          <button type="button" mat-button (click)="unarchive()">
+            <mat-icon>unarchive</mat-icon>
+            Unarchive
+          </button>
+        } @else {
+          <button type="button" mat-button (click)="archive()">
+            <mat-icon>archive</mat-icon>
+            Archive
+          </button>
+        }
+        <button type="button" mat-button color="warn" (click)="delete()">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <app-goal-statistics [goal]="current" />
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Timeline</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <app-goal-timeline [goal]="current" />
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Milestones</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <app-milestone-list [milestones]="current.milestones" [editable]="false" (toggleCompleted)="toggleMilestone($event)" />
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button type="button" mat-button [routerLink]="['/goals', current.id, 'milestones']">
+          <mat-icon>flag</mat-icon>
+          Manage milestones
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </section>
+}

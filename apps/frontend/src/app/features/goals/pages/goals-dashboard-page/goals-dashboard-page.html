@@ -1,0 +1,62 @@
+<section class="goals-dashboard-page">
+  <header class="goals-dashboard-page__header">
+    <h1>Goals</h1>
+    <button type="button" mat-flat-button color="primary" (click)="createGoal()">
+      <mat-icon>add</mat-icon>
+      New Goal
+    </button>
+  </header>
+
+  @if (nearestGoals().length > 0) {
+    <mat-card appearance="outlined" class="goals-dashboard-page__glance">
+      <mat-card-header>
+        <mat-card-title>At a glance</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @for (goal of nearestGoals(); track goal.id) {
+          <app-goal-progress-widget [goal]="goal" (view)="viewGoal(goal)" />
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <app-goal-filters (filterChanged)="onFilterChange($event)" />
+
+  @if (store.error(); as error) {
+    <div class="goals-dashboard-page__error">
+      <p>{{ error }}</p>
+      <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+    </div>
+  } @else if (store.loading() && store.goals().length === 0) {
+    <div class="goals-dashboard-page__skeletons">
+      @for (row of skeletonRows; track $index) {
+        <app-skeleton height="88px" />
+      }
+    </div>
+  } @else if (store.isEmpty()) {
+    <app-empty-state icon="flag" title="No goals yet" message="Create your first goal to start tracking long-term progress.">
+      <button type="button" mat-flat-button color="primary" (click)="createGoal()">New Goal</button>
+    </app-empty-state>
+  } @else {
+    <div class="goals-dashboard-page__list">
+      @for (goal of store.goals(); track goal.id) {
+        <app-goal-card
+          [goal]="goal"
+          (view)="viewGoal(goal)"
+          (edit)="editGoal(goal)"
+          (delete)="deleteGoal(goal)"
+          (archive)="archiveGoal(goal)"
+          (unarchive)="unarchiveGoal(goal)"
+        />
+      }
+    </div>
+
+    <mat-paginator
+      [length]="store.meta().total"
+      [pageSize]="store.meta().pageSize"
+      [pageIndex]="store.meta().page - 1"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)"
+    />
+  }
+</section>

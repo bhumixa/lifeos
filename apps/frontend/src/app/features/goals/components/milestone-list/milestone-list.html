@@ -1,0 +1,28 @@
+<ul class="milestone-list">
+  @for (milestone of milestones(); track milestone.id) {
+    <li class="milestone-list__item" [class.milestone-list__item--completed]="milestone.completed">
+      <mat-checkbox [checked]="milestone.completed" (change)="toggleCompleted.emit(milestone)" />
+
+      <div class="milestone-list__body">
+        <p class="milestone-list__title">{{ milestone.title }}</p>
+        @if (milestone.description) {
+          <p class="milestone-list__description">{{ milestone.description }}</p>
+        }
+        @if (formatDueDate(milestone.dueDate); as due) {
+          <p class="milestone-list__due">Due {{ due }}</p>
+        }
+      </div>
+
+      @if (editable()) {
+        <button type="button" mat-icon-button aria-label="Edit milestone" (click)="edit.emit(milestone)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button type="button" mat-icon-button aria-label="Delete milestone" (click)="delete.emit(milestone)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      }
+    </li>
+  } @empty {
+    <li class="milestone-list__empty">No milestones yet.</li>
+  }
+</ul>

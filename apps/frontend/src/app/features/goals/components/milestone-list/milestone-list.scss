@@ -1,0 +1,48 @@
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.milestone-list__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.milestone-list__item:last-child {
+  border-bottom: none;
+}
+
+.milestone-list__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 0.5rem;
+}
+
+.milestone-list__title {
+  margin: 0;
+  font-weight: 500;
+}
+
+.milestone-list__item--completed .milestone-list__title {
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: line-through;
+}
+
+.milestone-list__description,
+.milestone-list__due {
+  margin: 0.15rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.milestone-list__empty {
+  padding: 0.75rem 0;
+  color: var(--mat-sys-on-surface-variant);
+}

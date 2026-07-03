@@ -18,6 +18,7 @@ describe('RoutineApiService', () => {
     color: '#FF9800',
     description: null,
     isActive: true,
+    goalId: null,
     steps: [],
     totalDurationMinutes: 0,
     createdAt: '2026-01-01T00:00:00.000Z',

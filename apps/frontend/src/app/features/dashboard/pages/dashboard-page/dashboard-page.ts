@@ -12,6 +12,7 @@ import { PlannerTimelineCard } from '../../components/planner-timeline-card/plan
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
+import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
 import { DashboardPlannerService } from '../../services/dashboard-planner.service';
 import { DashboardStreaksService } from '../../services/dashboard-streaks.service';
@@ -43,6 +44,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardHabitStats = inject(DashboardHabitStatsService);
   private readonly dashboardPlanner = inject(DashboardPlannerService);
   private readonly dashboardStreaks = inject(DashboardStreaksService);
+  private readonly dashboardGoals = inject(DashboardGoalsService);
 
   protected readonly user = this.authService.user;
 
@@ -69,6 +71,14 @@ export class DashboardPage implements OnInit {
     { label: 'Weekly Success', value: '—', icon: 'calendar_view_week' },
     { label: 'Monthly Success', value: '—', icon: 'calendar_month' },
     { label: 'Consistency', value: '—', icon: 'percent' },
+  ]);
+
+  protected readonly goalsStatsLoading = signal(true);
+  protected readonly goalsStats = signal<DashboardStat[]>([
+    { label: 'Active Goals', value: '—', icon: 'flag' },
+    { label: "Today's Goal Progress", value: '—', icon: 'trending_up' },
+    { label: 'Goal Completion %', value: '—', icon: 'percent' },
+    { label: 'Nearest Goal Deadline', value: '—', icon: 'event' },
   ]);
 
   protected readonly plannerLoading = signal(true);
@@ -164,6 +174,28 @@ export class DashboardPage implements OnInit {
         this.streaksStatsLoading.set(false);
       },
       error: () => this.streaksStatsLoading.set(false),
+    });
+
+    this.dashboardGoals.load().subscribe({
+      next: (stats) => {
+        this.goalsStats.set([
+          { label: 'Active Goals', value: String(stats.activeCount), icon: 'flag' },
+          { label: "Today's Goal Progress", value: `${stats.averageProgressPercent}%`, icon: 'trending_up' },
+          { label: 'Goal Completion %', value: `${stats.completionPercentage}%`, icon: 'percent' },
+          {
+            label: 'Nearest Goal Deadline',
+            value: stats.nearestDeadline
+              ? new Date(stats.nearestDeadline.targetDate).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })
+              : 'None',
+            icon: 'event',
+          },
+        ]);
+        this.goalsStatsLoading.set(false);
+      },
+      error: () => this.goalsStatsLoading.set(false),
     });
   }
 

@@ -1,0 +1,66 @@
+<div class="goal-filters">
+  <mat-form-field appearance="outline" class="goal-filters__search">
+    <mat-label>Search goals</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput [ngModel]="searchTerm" (ngModelChange)="onSearchInput($event)" placeholder="Title" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="goal-filters__filter">
+    <mat-label>Status</mat-label>
+    <mat-select [ngModel]="status" (ngModelChange)="onStatusChange($event)">
+      <mat-option value="">All statuses</mat-option>
+      @for (entry of statuses; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="goal-filters__filter">
+    <mat-label>Priority</mat-label>
+    <mat-select [ngModel]="priority" (ngModelChange)="onPriorityChange($event)">
+      <mat-option value="">All priorities</mat-option>
+      @for (entry of priorities; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="goal-filters__filter">
+    <mat-label>Target type</mat-label>
+    <mat-select [ngModel]="targetType" (ngModelChange)="onTargetTypeChange($event)">
+      <mat-option value="">All types</mat-option>
+      @for (entry of targetTypes; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="goal-filters__filter">
+    <mat-label>Sort by</mat-label>
+    <mat-select [ngModel]="sortBy" (ngModelChange)="onSortByChange($event)">
+      <mat-option value="createdAt">Created</mat-option>
+      <mat-option value="title">Title</mat-option>
+      <mat-option value="targetDate">Target date</mat-option>
+      <mat-option value="priority">Priority</mat-option>
+      <mat-option value="progressPercent">Progress</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <button
+    type="button"
+    mat-icon-button
+    [attr.aria-label]="sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'"
+    (click)="onSortOrderToggle()"
+  >
+    <mat-icon>{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+  </button>
+
+  <button
+    type="button"
+    mat-icon-button
+    [attr.aria-label]="showArchived ? 'Hide archived goals' : 'Show archived goals'"
+    (click)="onArchivedToggle(!showArchived)"
+  >
+    <mat-icon>{{ showArchived ? 'unarchive' : 'archive' }}</mat-icon>
+  </button>
+</div>

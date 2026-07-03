@@ -1,0 +1,19 @@
+@if (entries().length === 0) {
+  <p class="goal-timeline__empty">Add a start date, target date, or milestone to see a timeline.</p>
+} @else {
+  <ol class="goal-timeline">
+    @for (entry of entries(); track entry.key) {
+      <li class="goal-timeline__entry" [class.goal-timeline__entry--completed]="entry.completed">
+        <span class="goal-timeline__dot">
+          @if (entry.completed) {
+            <mat-icon>check</mat-icon>
+          }
+        </span>
+        <div class="goal-timeline__body">
+          <p class="goal-timeline__label">{{ entry.label }}</p>
+          <p class="goal-timeline__date">{{ formatDate(entry.date) }}</p>
+        </div>
+      </li>
+    }
+  </ol>
+}

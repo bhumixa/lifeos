@@ -1,0 +1,19 @@
+.goal-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.goal-filters__search {
+  flex: 1 1 240px;
+}
+
+.goal-filters__filter {
+  flex: 0 1 160px;
+}
+
+mat-form-field {
+  margin-bottom: -1.25em;
+}

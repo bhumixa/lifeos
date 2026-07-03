@@ -152,6 +152,7 @@ describe('PlannerStore', () => {
         color: null,
         completed: false,
         order: 0,
+        goalId: null,
         createdAt: '2026-07-03T00:00:00.000Z',
         updatedAt: '2026-07-03T00:00:00.000Z',
       },

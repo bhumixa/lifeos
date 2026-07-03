@@ -1,0 +1,21 @@
+<mat-card appearance="outlined" class="goal-statistics">
+  <mat-card-content class="goal-statistics__content">
+    <app-goal-progress-ring [percent]="goal().progressPercent" [color]="goal().color" [size]="88" />
+
+    <div class="goal-statistics__badges">
+      <app-badge [label]="statusLabel()" [variant]="statusVariant()" />
+      <app-badge [label]="priorityLabel()" [variant]="priorityVariant()" />
+    </div>
+
+    <dl class="goal-statistics__grid">
+      <div class="goal-statistics__stat">
+        <dt>{{ targetTypeLabel() }}</dt>
+        <dd>{{ goal().currentValue }} / {{ goal().targetValue }}</dd>
+      </div>
+      <div class="goal-statistics__stat">
+        <dt>Milestones</dt>
+        <dd>{{ goal().milestonesCompletedCount }} / {{ goal().milestonesTotalCount }}</dd>
+      </div>
+    </dl>
+  </mat-card-content>
+</mat-card>
