@@ -14,6 +14,7 @@ export class PlannerBlockResponseDto {
   @ApiProperty({ nullable: true }) color!: string | null;
   @ApiProperty() completed!: boolean;
   @ApiProperty() order!: number;
+  @ApiProperty({ nullable: true }) goalId!: string | null;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

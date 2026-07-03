@@ -17,6 +17,7 @@ export class TaskResponseDto {
   @ApiProperty({ nullable: true }) estimatedMinutes!: number | null;
   @ApiProperty({ nullable: true }) completedAt!: Date | null;
   @ApiProperty({ type: [String] }) tags!: string[];
+  @ApiProperty({ nullable: true }) goalId!: string | null;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

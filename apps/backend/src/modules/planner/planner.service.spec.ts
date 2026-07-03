@@ -46,7 +46,10 @@ describe('PlannerService', () => {
       delete: jest.Mock;
       deleteMany: jest.Mock;
       findFirst: jest.Mock;
+      count: jest.Mock;
+      aggregate: jest.Mock;
     };
+    goal: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let tasksService: {
@@ -85,6 +88,7 @@ describe('PlannerService', () => {
     color: null,
     completed: false,
     order: 0,
+    goalId: null,
     createdAt: new Date('2026-07-03T00:00:00.000Z'),
     updatedAt: new Date('2026-07-03T00:00:00.000Z'),
     ...overrides,
@@ -102,7 +106,10 @@ describe('PlannerService', () => {
         delete: jest.fn().mockResolvedValue(undefined),
         deleteMany: jest.fn().mockResolvedValue(undefined),
         findFirst: jest.fn(),
+        count: jest.fn(),
+        aggregate: jest.fn(),
       },
+      goal: { findFirst: jest.fn() },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     tasksService = {
@@ -334,7 +341,7 @@ describe('PlannerService', () => {
     });
 
     it('defaults to completing but accepts an explicit false to un-complete', async () => {
-      const block = makeBlock();
+      const block = makeBlock({});
       prisma.plannerBlock.findFirst.mockResolvedValue({
         ...block,
         plannerDay: mockDay,
@@ -524,6 +531,100 @@ describe('PlannerService', () => {
           dueTo: '2026-07-04T04:00:00.000Z',
         }),
       );
+    });
+  });
+
+  describe('goalId linking (Milestone 9)', () => {
+    it('createBlock rejects a goalId that does not belong to the same user', async () => {
+      prisma.plannerDay.findUnique.mockResolvedValue({
+        ...mockDay,
+        blocks: [],
+      });
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBlock(userId, {
+          type: PlannerBlockType.FOCUS,
+          title: 'Deep work',
+          startTime: '2026-07-03T09:00:00.000Z',
+          endTime: '2026-07-03T10:00:00.000Z',
+          goalId: 'someone-elses-goal',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.plannerBlock.create).not.toHaveBeenCalled();
+    });
+
+    it('updateBlock rejects a goalId that does not belong to the same user', async () => {
+      const block = makeBlock({});
+      prisma.plannerBlock.findFirst.mockResolvedValue({
+        ...block,
+        plannerDay: mockDay,
+      });
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateBlock(userId, block.id, { goalId: 'someone-elses-goal' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.plannerBlock.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('countCompletedBlocksByReferenceIds', () => {
+    it('scopes the count to this user, this type, and the given reference ids', async () => {
+      prisma.plannerBlock.count.mockResolvedValue(2);
+
+      const result = await service.countCompletedBlocksByReferenceIds(
+        userId,
+        ['step-1', 'step-2'],
+        PlannerBlockType.ROUTINE,
+      );
+
+      expect(prisma.plannerBlock.count).toHaveBeenCalledWith({
+        where: {
+          completed: true,
+          type: PlannerBlockType.ROUTINE,
+          referenceId: { in: ['step-1', 'step-2'] },
+          plannerDay: { userId },
+        },
+      });
+      expect(result).toBe(2);
+    });
+
+    it('returns 0 without querying when given no reference ids', async () => {
+      const result = await service.countCompletedBlocksByReferenceIds(
+        userId,
+        [],
+        PlannerBlockType.ROUTINE,
+      );
+
+      expect(prisma.plannerBlock.count).not.toHaveBeenCalled();
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('sumCompletedDurationByGoal', () => {
+    it('sums duration across this user’s completed blocks linked to the goal', async () => {
+      prisma.plannerBlock.aggregate.mockResolvedValue({
+        _sum: { duration: 90 },
+      });
+
+      const result = await service.sumCompletedDurationByGoal(userId, 'goal-1');
+
+      expect(prisma.plannerBlock.aggregate).toHaveBeenCalledWith({
+        where: { completed: true, goalId: 'goal-1', plannerDay: { userId } },
+        _sum: { duration: true },
+      });
+      expect(result).toBe(90);
+    });
+
+    it('returns 0 rather than null when there are no completed blocks yet', async () => {
+      prisma.plannerBlock.aggregate.mockResolvedValue({
+        _sum: { duration: null },
+      });
+
+      const result = await service.sumCompletedDurationByGoal(userId, 'goal-1');
+
+      expect(result).toBe(0);
     });
   });
 });

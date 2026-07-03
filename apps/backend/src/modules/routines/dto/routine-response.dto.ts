@@ -21,6 +21,7 @@ export class RoutineResponseDto {
   @ApiProperty() color!: string;
   @ApiProperty({ nullable: true }) description!: string | null;
   @ApiProperty() isActive!: boolean;
+  @ApiProperty({ nullable: true }) goalId!: string | null;
   @ApiProperty({ type: [RoutineStepResponseDto] })
   steps!: RoutineStepResponseDto[];
   @ApiProperty() totalDurationMinutes!: number;

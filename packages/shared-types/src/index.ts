@@ -5,3 +5,4 @@ export * from './routine.types.js';
 export * from './habit.types.js';
 export * from './planner.types.js';
 export * from './streak.types.js';
+export * from './goal.types.js';

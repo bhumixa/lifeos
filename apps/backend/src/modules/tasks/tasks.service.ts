@@ -88,7 +88,11 @@ export class TasksService {
     return task;
   }
 
-  create(userId: string, dto: CreateTaskDto): Promise<Task> {
+  async create(userId: string, dto: CreateTaskDto): Promise<Task> {
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
+
     return this.prisma.task.create({
       data: {
         userId,
@@ -99,12 +103,16 @@ export class TasksService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
         estimatedMinutes: dto.estimatedMinutes,
         tags: dto.tags ?? [],
+        goalId: dto.goalId,
       },
     });
   }
 
   async update(userId: string, id: string, dto: UpdateTaskDto): Promise<Task> {
     await this.findOne(userId, id);
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
 
     return this.prisma.task.update({
       where: { id },
@@ -144,5 +152,30 @@ export class TasksService {
     return this.prisma.task.count({
       where: { userId, status: TaskStatus.COMPLETED, deletedAt: null },
     });
+  }
+
+  /** Completed-task count scoped to one Goal — powers GoalsService's TASK_COUNT progress
+   * calculation (Milestone 9) without it duplicating this service's own ownership-scoped query,
+   * the same "reuse services" precedent countCompleted already set for Streaks. */
+  countCompletedByGoal(userId: string, goalId: string): Promise<number> {
+    return this.prisma.task.count({
+      where: { userId, goalId, status: TaskStatus.COMPLETED, deletedAt: null },
+    });
+  }
+
+  /** Guards against linking a Task to a Goal that doesn't exist or belongs to someone else — a
+   * raw existence check rather than injecting GoalsService, since GoalsModule already imports
+   * TasksModule for its own progress aggregation and importing back would be circular. */
+  private async assertGoalOwnership(
+    userId: string,
+    goalId: string,
+  ): Promise<void> {
+    const goal = await this.prisma.goal.findFirst({
+      where: { id: goalId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!goal) {
+      throw new NotFoundException('Goal not found');
+    }
   }
 }

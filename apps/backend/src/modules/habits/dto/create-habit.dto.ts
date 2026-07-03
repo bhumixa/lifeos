@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -77,4 +78,12 @@ export class CreateHabitDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Milestone 9: optional Goal this habit contributes to (must belong to the same user).',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  goalId?: string;
 }

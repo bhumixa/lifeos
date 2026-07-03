@@ -11,6 +11,8 @@ export interface Task {
   estimatedMinutes: number | null;
   completedAt: string | null;
   tags: string[];
+  /** Milestone 9: optional Goal this task contributes to. */
+  goalId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +37,8 @@ export interface CreateTaskRequest {
   dueDate?: string;
   estimatedMinutes?: number;
   tags?: string[];
+  /** Milestone 9: optional Goal this task contributes to (must belong to the same user). */
+  goalId?: string;
 }
 
 export type UpdateTaskRequest = Partial<CreateTaskRequest>;

@@ -95,6 +95,9 @@ export class HabitsService {
 
   async create(userId: string, dto: CreateHabitDto): Promise<HabitResponseDto> {
     await this.assertNameAvailable(userId, dto.name);
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
 
     const habit = await this.prisma.habit.create({
       data: {
@@ -108,6 +111,7 @@ export class HabitsService {
         category: dto.category,
         reminderTime: dto.reminderTime,
         isActive: dto.isActive ?? true,
+        goalId: dto.goalId,
       },
     });
     const [response] = await this.toResponses([habit]);
@@ -122,6 +126,9 @@ export class HabitsService {
     await this.findHabitOrThrow(userId, id);
     if (dto.name) {
       await this.assertNameAvailable(userId, dto.name, id);
+    }
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
     }
 
     const habit = await this.prisma.habit.update({ where: { id }, data: dto });
@@ -328,6 +335,16 @@ export class HabitsService {
     };
   }
 
+  /** Lifetime HabitLog count across every habit linked to a given Goal — powers GoalsService's
+   * HABIT_COMPLETION progress calculation (Milestone 9) without it duplicating this service's own
+   * ownership-scoped query, the same "reuse services" precedent TasksService.countCompleted
+   * already set for Streaks. */
+  countLogsByGoal(userId: string, goalId: string): Promise<number> {
+    return this.prisma.habitLog.count({
+      where: { habit: { userId, goalId, deletedAt: null } },
+    });
+  }
+
   private async findHabitOrThrow(userId: string, id: string): Promise<Habit> {
     const habit = await this.prisma.habit.findFirst({
       where: { id, userId, deletedAt: null },
@@ -336,6 +353,22 @@ export class HabitsService {
       throw new NotFoundException('Habit not found');
     }
     return habit;
+  }
+
+  /** Same rationale as TasksService's own assertGoalOwnership: a raw existence check rather than
+   * injecting GoalsService, since GoalsModule already imports HabitsModule and importing back
+   * would be circular. */
+  private async assertGoalOwnership(
+    userId: string,
+    goalId: string,
+  ): Promise<void> {
+    const goal = await this.prisma.goal.findFirst({
+      where: { id: goalId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!goal) {
+      throw new NotFoundException('Goal not found');
+    }
   }
 
   private async assertNameAvailable(
@@ -404,6 +437,7 @@ export class HabitsService {
         category: habit.category,
         reminderTime: habit.reminderTime,
         isActive: habit.isActive,
+        goalId: habit.goalId,
         currentPeriodCount,
         completionPercent: Math.min(
           100,

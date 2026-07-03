@@ -22,6 +22,12 @@
 // XP) remains the sole source of truth and every number is recomputed on read by
 // modules/streaks, the same "derived, not stored" principle Habit/Routine already apply to their
 // own completion percentages. See the comment on Achievement for the full rationale.
+// Milestone 9 (Goals & Goal Tracking) adds Goal/GoalMilestone, plus an optional `goalId` on
+// Task/Habit/Routine/PlannerBlock so any of those can opt into contributing to a Goal's progress.
+// Unlike Streaks, Goal.currentValue *is* a real stored column (the milestone brief lists it
+// explicitly, and CUSTOM goals need somewhere for a manual value to live) — see the comment on
+// Goal for the read/recompute contract that keeps it from drifting out of sync with the source
+// data it's derived from for the four automatic target types.
 
 generator client {
   provider = "prisma-client-js"
@@ -68,6 +74,7 @@ model User {
   plannerDays      PlannerDay[]
   userAchievements UserAchievement[]
   freezeDays       FreezeDay[]
+  goals            Goal[]
 
   @@map("users")
 }
@@ -122,6 +129,12 @@ model Task {
   completedAt      DateTime?
   tags             String[]     @default([])
 
+  // Milestone 9: optional link to a Goal this task contributes to. `onDelete: SetNull` — deleting
+  // a Goal detaches its tasks rather than deleting them; a Task's own lifecycle never depends on
+  // its Goal's. See the comment on Goal for how TASK_COUNT progress is computed from this.
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   // Soft delete, per docs/06-database-design.md's design principles (Task is named there
@@ -131,6 +144,7 @@ model Task {
 
   @@index([userId, status])
   @@index([userId, dueDate])
+  @@index([goalId])
   @@map("tasks")
 }
 
@@ -153,12 +167,19 @@ model Routine {
   description String?
   isActive    Boolean @default(true)
 
+  // Milestone 9: optional link to a Goal this routine contributes to. ROUTINE_COMPLETION progress
+  // walks from here to this routine's steps to the completed PlannerBlocks that reference them —
+  // see the comment on Goal.
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   steps RoutineStep[]
 
   @@index([userId, isActive])
+  @@index([goalId])
   @@map("routines")
 }
 
@@ -167,7 +188,7 @@ model RoutineStep {
   routineId String
   routine   Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
 
-  title    String
+  title                 String
   // "HH:mm", 24-hour, local time-of-day — see the comment on Routine for why not DateTime.
   startTime             String
   durationMinutes       Int
@@ -210,8 +231,13 @@ model Habit {
   targetCount     Int            @default(1)
   category        String?
   // "HH:mm", 24-hour, local time-of-day — see the comment above for why not DateTime.
-  reminderTime String?
-  isActive     Boolean @default(true)
+  reminderTime    String?
+  isActive        Boolean        @default(true)
+
+  // Milestone 9: optional link to a Goal this habit contributes to. HABIT_COMPLETION progress
+  // counts this habit's HabitLog rows — see the comment on Goal.
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -226,6 +252,7 @@ model Habit {
   // this constraint is the last-resort backstop against a race between two concurrent creates.
   @@unique([userId, name])
   @@index([userId, isActive])
+  @@index([goalId])
   @@map("habits")
 }
 
@@ -293,7 +320,7 @@ model PlannerBlock {
   plannerDayId String
   plannerDay   PlannerDay @relation(fields: [plannerDayId], references: [id], onDelete: Cascade)
 
-  type PlannerBlockType
+  type        PlannerBlockType
   // Polymorphic-by-reference (Task.id / RoutineStep.id / Habit.id), the same pattern
   // docs/06-database-design.md's ScheduleBlock uses — no FK constraint, since the referenced
   // table depends on `type`. Null for FOCUS/BREAK/CUSTOM, which have no backing source record.
@@ -310,18 +337,26 @@ model PlannerBlock {
   // values should be calculated whenever practical"). Stored (not computed on read) because it's
   // the field the milestone brief names explicitly and because every list view needs it without
   // re-deriving per row.
-  duration  Int
-  color     String?
-  completed Boolean @default(false)
+  duration    Int
+  color       String?
+  completed   Boolean          @default(false)
   // Manual sort key for same/overlapping-time blocks and drag-reorder — independent of
   // chronological startTime ordering, same role RoutineStep.order plays for routines.
-  order Int
+  order       Int
+
+  // Milestone 9: optional link to a Goal this block directly contributes to — independent of
+  // `referenceId`/`type`. FOCUS_TIME progress sums `duration` across a goal's completed blocks
+  // regardless of type, per the "Planner: completed planner blocks contribute automatically"
+  // business rule — see the comment on Goal.
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([plannerDayId, order])
   @@index([plannerDayId, startTime])
+  @@index([goalId])
   @@map("planner_blocks")
 }
 
@@ -388,4 +423,119 @@ model FreezeDay {
   @@unique([userId, date])
   @@index([userId, date])
   @@map("freeze_days")
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// What GET /goals/:id/progress recomputes `currentValue` from. Each automatic type corresponds
+// 1:1 to one of the milestone brief's four "contribute automatically" sources (Tasks/Habits/
+// Routine/Planner) via that source's own optional `goalId` link; CUSTOM has no automatic source
+// at all — `currentValue` only ever changes for a CUSTOM goal via PATCH /goals/:id.
+enum GoalTargetType {
+  TASK_COUNT
+  HABIT_COMPLETION
+  ROUTINE_COMPLETION
+  FOCUS_TIME
+  CUSTOM
+}
+
+// The highest-level entity in LifeOS: Task/Habit/Routine/PlannerBlock can each optionally point
+// back at a Goal via their own `goalId` (see those models' comments), and a Goal's `currentValue`
+// is what GoalsService.getProgress recomputes from whichever of those four relations matches its
+// own `targetType` — TASK_COUNT counts this goal's completed Tasks, HABIT_COMPLETION counts
+// HabitLog rows for this goal's Habits, ROUTINE_COMPLETION counts completed ROUTINE-type
+// PlannerBlocks whose referenced RoutineStep belongs to one of this goal's Routines, and
+// FOCUS_TIME sums the `duration` of this goal's own completed PlannerBlocks directly. CUSTOM
+// goals have no automatic source — `currentValue` is a plain user-supplied number, updated only
+// via PATCH /goals/:id.
+//
+// Unlike Streak (Milestone 8), `currentValue` is a real, persisted column, not fully derived on
+// every read: GET /goals and GET /goals/:id return whatever is currently stored (cheap — no
+// source-table scan per goal in a list), and only GET /goals/:id/progress actually walks the
+// source data and writes the refreshed value back, the same "explicit refresh, not implicit
+// recompute-on-every-read" trade-off Milestone 8's own architecture note flags as the natural
+// next step beyond pull-based evaluation. This keeps GET /goals cheap regardless of how many
+// goals a user has, at the cost of `currentValue` only being as fresh as the last time
+// GET /goals/:id/progress ran for that goal (mirroring the same "known, documented limitation"
+// shape Milestone 8 already accepted for PlannerBlock-derived XP).
+model Goal {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  icon        String
+  color       String
+  // Free-text, like Habit.category — the milestone brief's Enums section defines GoalStatus/
+  // GoalPriority/TargetType but not a category enum, so this follows Habit's own precedent rather
+  // than docs/06-database-design.md's original GoalCategory enum sketch.
+  category    String?
+  priority    GoalPriority @default(MEDIUM)
+
+  targetType   GoalTargetType
+  targetValue  Int
+  currentValue Int            @default(0)
+
+  startDate  DateTime?  @db.Date
+  targetDate DateTime?  @db.Date
+  status     GoalStatus @default(NOT_STARTED)
+  archived   Boolean    @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete, per docs/06-database-design.md's design principles — Goal is named there
+  // explicitly, same as Task/Habit.
+  deletedAt DateTime?
+
+  milestones    GoalMilestone[]
+  tasks         Task[]
+  habits        Habit[]
+  routines      Routine[]
+  plannerBlocks PlannerBlock[]
+
+  @@index([userId, status])
+  @@index([userId, archived])
+  @@map("goals")
+}
+
+// A Goal's own sub-checkpoints — structurally the same "steps belonging to a parent" shape as
+// RoutineStep, so it follows the same conventions: no owner column of its own (reached only
+// through `goal`, ownership enforced by joining `goal: { userId }`), hard delete (disposable,
+// recreatable content, not named in docs/06-database-design.md's soft-delete list), and a manual
+// `order` sort key. Unlike RoutineStep, milestone completion is entirely manual (`completed`/
+// `completedAt`, toggled via PATCH /goals/milestones/:id) — it is deliberately NOT wired into
+// Goal.currentValue: the milestone brief's "contribute automatically" business rules name only
+// Task/Habit/Routine/PlannerBlock completions, not GoalMilestone completions, so a milestone is a
+// user-tracked checkpoint alongside a goal's progress, not another progress input.
+model GoalMilestone {
+  id     String @id @default(uuid())
+  goalId String
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  dueDate     DateTime? @db.Date
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  order       Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([goalId, order])
+  @@map("goal_milestones")
 }

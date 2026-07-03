@@ -25,7 +25,9 @@ describe('RoutinesService', () => {
       update: jest.Mock;
       delete: jest.Mock;
       findFirst: jest.Mock;
+      findMany: jest.Mock;
     };
+    goal: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -58,6 +60,7 @@ describe('RoutinesService', () => {
       color: '#FF9800',
       description: null,
       isActive: true,
+      goalId: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       ...overrides,
@@ -79,7 +82,9 @@ describe('RoutinesService', () => {
         update: jest.fn(),
         delete: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
+      goal: { findFirst: jest.fn() },
       $transaction: jest.fn().mockResolvedValue([]),
     };
 
@@ -409,6 +414,57 @@ describe('RoutinesService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('goalId linking (Milestone 9)', () => {
+    it('create rejects a goalId that does not belong to the same user', async () => {
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(userId, {
+          name: 'Morning Routine',
+          icon: 'wb_sunny',
+          color: '#FF9800',
+          goalId: 'someone-elses-goal',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.routine.create).not.toHaveBeenCalled();
+    });
+
+    it('update rejects a goalId that does not belong to the same user', async () => {
+      prisma.routine.findFirst.mockResolvedValue(makeRoutine());
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(userId, routineId, { goalId: 'someone-elses-goal' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.routine.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStepIdsByGoal', () => {
+    it('returns step ids for this user’s routines linked to the goal', async () => {
+      prisma.routineStep.findMany.mockResolvedValue([
+        { id: 'step-1' },
+        { id: 'step-2' },
+      ]);
+
+      const result = await service.getStepIdsByGoal(userId, 'goal-1');
+
+      expect(prisma.routineStep.findMany).toHaveBeenCalledWith({
+        where: { routine: { userId, goalId: 'goal-1' } },
+        select: { id: true },
+      });
+      expect(result).toEqual(['step-1', 'step-2']);
+    });
+
+    it('returns an empty array when no routines are linked to the goal', async () => {
+      prisma.routineStep.findMany.mockResolvedValue([]);
+
+      const result = await service.getStepIdsByGoal(userId, 'goal-1');
+
+      expect(result).toEqual([]);
     });
   });
 });

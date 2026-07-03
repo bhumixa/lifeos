@@ -42,6 +42,10 @@ export class RoutinesService {
     userId: string,
     dto: CreateRoutineDto,
   ): Promise<RoutineResponseDto> {
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
+
     const routine = await this.prisma.routine.create({
       data: {
         userId,
@@ -50,6 +54,7 @@ export class RoutinesService {
         color: dto.color,
         description: dto.description,
         isActive: dto.isActive ?? true,
+        goalId: dto.goalId,
         steps: dto.steps
           ? {
               create: dto.steps.map((step, index) =>
@@ -69,6 +74,10 @@ export class RoutinesService {
     dto: UpdateRoutineDto,
   ): Promise<RoutineResponseDto> {
     await this.findRoutineOrThrow(userId, id);
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
+
     const routine = await this.prisma.routine.update({
       where: { id },
       data: dto,
@@ -199,6 +208,20 @@ export class RoutinesService {
     return this.findOne(userId, routineId);
   }
 
+  /** RoutineStep ids belonging to this user's routines linked to a given Goal — powers
+   * GoalsService's ROUTINE_COMPLETION progress calculation (Milestone 9): Goals asks Routines for
+   * "which steps count", then asks Planner (which owns PlannerBlock, the only place a routine
+   * step's completion is actually recorded — see the comment on Routine) how many of those are
+   * completed, the same two-service composition PlannerService itself already does for
+   * generation. */
+  async getStepIdsByGoal(userId: string, goalId: string): Promise<string[]> {
+    const steps = await this.prisma.routineStep.findMany({
+      where: { routine: { userId, goalId } },
+      select: { id: true },
+    });
+    return steps.map((step) => step.id);
+  }
+
   private async findRoutineOrThrow(
     userId: string,
     id: string,
@@ -211,6 +234,22 @@ export class RoutinesService {
       throw new NotFoundException('Routine not found');
     }
     return routine;
+  }
+
+  /** Same rationale as TasksService's own assertGoalOwnership: a raw existence check rather than
+   * injecting GoalsService, since GoalsModule already imports RoutinesModule and importing back
+   * would be circular. */
+  private async assertGoalOwnership(
+    userId: string,
+    goalId: string,
+  ): Promise<void> {
+    const goal = await this.prisma.goal.findFirst({
+      where: { id: goalId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!goal) {
+      throw new NotFoundException('Goal not found');
+    }
   }
 
   private async findStepOrThrow(
@@ -248,6 +287,7 @@ export class RoutinesService {
       color: routine.color,
       description: routine.description,
       isActive: routine.isActive,
+      goalId: routine.goalId,
       steps,
       totalDurationMinutes: steps.reduce(
         (total, step) => total + step.durationMinutes,

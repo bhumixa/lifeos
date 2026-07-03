@@ -18,6 +18,8 @@ export interface Routine {
   color: string;
   description: string | null;
   isActive: boolean;
+  /** Milestone 9: optional Goal this routine contributes to. */
+  goalId: string | null;
   steps: RoutineStep[];
   /** Sum of steps[].durationMinutes — computed server-side, not stored. */
   totalDurationMinutes: number;
@@ -42,6 +44,8 @@ export interface CreateRoutineRequest {
   /** Optional initial steps, in display order — lets the Routine Editor save a routine and its
    * steps in one request instead of N+1. */
   steps?: CreateRoutineStepRequest[];
+  /** Milestone 9: optional Goal this routine contributes to (must belong to the same user). */
+  goalId?: string;
 }
 
 export type UpdateRoutineRequest = Partial<Omit<CreateRoutineRequest, 'steps'>>;

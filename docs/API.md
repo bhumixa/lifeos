@@ -128,9 +128,44 @@ unlock if that endpoint happens to be called while the condition holds; every ot
 |---|---|---|
 | POST | `/freeze-days/use` | Spends one of a small monthly quota (2, a documented placeholder) of "streak freeze" days to protect a calendar date (defaults to today) from breaking the day-level consistency streak. 409 if that date is already frozen or the month's quota is exhausted; 400 for a future date. |
 
+## Goals (Milestone 9)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/goals` | Paginated list — filter by `status`/`priority`/`targetType`/`category`/`search`/`archived` (defaults to excluding archived), sort (including by computed `progressPercent`). |
+| GET | `/goals/:id` | One goal, with its milestones. Returns whatever `currentValue` is currently stored — see the note below on `/progress`. |
+| POST | `/goals` | Create a goal. `currentValue` defaults to 0; only meaningful to set explicitly for a `CUSTOM` `targetType`. |
+| PATCH | `/goals/:id` | Update a goal. A `currentValue` in the body is applied only if the goal's (possibly also-updated) `targetType` is `CUSTOM` — silently ignored for the four automatic types, the same "never trust frontend data for a derived field" rule Planner's `duration` already follows. |
+| DELETE | `/goals/:id` | Soft-delete a goal. |
+| POST | `/goals/:id/archive` | Set `archived: true`. Excluded from `GET /goals` by default; not a delete. |
+| POST | `/goals/:id/unarchive` | Set `archived: false`. |
+| GET | `/goals/:id/progress` | Recomputes `currentValue` from source data for the four automatic `targetType`s (see the note below), persists the refreshed value, and returns it alongside `progressPercent`/`remainingValue`/`isComplete`. CUSTOM goals just reflect whatever was last set via `PATCH`. |
+| POST | `/goals/:id/milestones` | Add a milestone (appended at the end unless `order` is given). |
+| PATCH | `/goals/milestones/:id` | Update one milestone — **not** nested under a goal id in the URL (unlike Routine's steps); ownership is still enforced by joining through the milestone's parent goal. Toggling `completed` stamps/clears `completedAt` to match. |
+| DELETE | `/goals/milestones/:id` | Hard-delete a milestone. |
+
+**Task, Habit, Routine, and PlannerBlock can each optionally link to a Goal** via an additive,
+optional `goalId` field on their own create/update DTOs (a Goal in the request body must belong to
+the same user — 404 otherwise, the same ownership check every other cross-resource reference in
+this API uses). `GET`/list responses for all four now include `goalId` alongside their existing
+fields.
+
+**`GET /goals/:id/progress` is the only endpoint that recomputes `currentValue`** — `GET /goals`
+and `GET /goals/:id` return whatever's currently stored, so listing goals never re-scans
+Task/Habit/Routine/PlannerBlock data. Each automatic `targetType` maps to exactly one of those
+four "contributes automatically" sources, via that source's own `goalId`:
+
+| `targetType` | Recomputed from |
+|---|---|
+| `TASK_COUNT` | Count of this user's completed Tasks with `goalId` = this goal. |
+| `HABIT_COMPLETION` | Count of `HabitLog` rows for this user's Habits with `goalId` = this goal. |
+| `ROUTINE_COMPLETION` | Count of completed `ROUTINE`-type `PlannerBlock`s referencing a `RoutineStep` that belongs to one of this user's Routines with `goalId` = this goal. |
+| `FOCUS_TIME` | Sum of `duration` (minutes) across this user's completed `PlannerBlock`s with `goalId` = this goal directly (independent of `type`/`referenceId`). |
+| `CUSTOM` | Nothing — `currentValue` only changes via `PATCH /goals/:id`. |
+
 ## Not yet implemented
 
-Journal, Goals, Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see
+Journal, Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see
 `docs/09-roadmap.md` for milestone sequencing. XP/achievements are the beginning of
 "Gamification," per that roadmap's Phase 3, but a level system, badges beyond the fixed
 `Achievement` catalog, and daily/weekly Challenges remain unbuilt (see the note on Milestone 8 in

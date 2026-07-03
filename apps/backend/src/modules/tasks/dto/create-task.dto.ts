@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -66,4 +67,12 @@ export class CreateTaskDto {
   @IsString({ each: true })
   @MaxLength(50, { each: true })
   tags?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Milestone 9: optional Goal this task contributes to (must belong to the same user).',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  goalId?: string;
 }

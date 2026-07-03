@@ -369,6 +369,72 @@ GoalMilestone
   completedAt       timestamp, nullable
 ```
 
+> **As implemented (Milestone 9 — Goals & Goal Tracking):** the actual `Goal`/`GoalMilestone`
+> models follow that milestone's given field list rather than the shape sketched above:
+>
+> ```
+> Goal
+>   id                uuid PK
+>   userId            FK -> User
+>   title             string
+>   description        string, nullable
+>   icon              string   -- Material icon name, same convention as Habit/Routine
+>   color             string   -- hex or design-token name, same convention as Habit/Routine
+>   category          string, nullable   -- free text, not an enum — see below
+>   priority          enum(LOW, MEDIUM, HIGH, CRITICAL)
+>   targetType        enum(TASK_COUNT, HABIT_COMPLETION, ROUTINE_COMPLETION, FOCUS_TIME, CUSTOM)
+>   targetValue       int
+>   currentValue      int, default 0
+>   startDate         date, nullable
+>   targetDate        date, nullable
+>   status            enum(NOT_STARTED, ACTIVE, PAUSED, COMPLETED, CANCELLED)
+>   archived          boolean, default false
+>   createdAt / updatedAt / deletedAt
+>
+> GoalMilestone
+>   id                uuid PK
+>   goalId            FK -> Goal
+>   title             string
+>   description        string, nullable
+>   dueDate           date, nullable
+>   completed         boolean, default false
+>   completedAt       timestamp, nullable
+>   order             int
+>   createdAt / updatedAt
+> ```
+>
+> - **`category` is a free-text string, not this doc's original `GoalCategory` enum** — the
+>   milestone brief's own Enums section defines `GoalStatus`/`GoalPriority`/`TargetType` but no
+>   category enum, so this follows `Habit.category`'s precedent instead.
+> - **`priority`/`targetType`/`targetValue`/`currentValue`/`icon`/`color`/`archived` are all new
+>   fields beyond this doc's original sketch** — the milestone brief's given field list for `Goal`
+>   is fuller than this doc anticipated, closer in shape to `Habit`'s own field list
+>   (icon/color/targetCount-like fields) than to a plain reflection-adjacent record.
+> - **`currentValue` is a real, persisted column — not fully derived on every read**, unlike
+>   `Streak` (Milestone 8's "do not store, recompute on every read" principle). The milestone
+>   brief lists `currentValue` explicitly and allows manual progress updates for `CUSTOM` goals, so
+>   `GET /goals`/`GET /goals/:id` return whatever's currently stored, and only
+>   `GET /goals/:id/progress` recomputes it from `Task`/`Habit`/`Routine`/`PlannerBlock` source
+>   data (for the four automatic `targetType`s) and persists the refresh. See the comment on `Goal`
+>   in `prisma/schema.prisma` and `docs/05-architecture.md`'s Milestone 9 note for the full
+>   rationale, including why this is a deliberate widening of Milestone 8's principle rather than a
+>   reversal of it.
+> - **Soft delete, like Task/Habit**: this doc's design principle names `Goal` explicitly, so
+>   `deletedAt` is kept — unlike `GoalMilestone`, which follows `RoutineStep`'s hard-delete
+>   precedent instead (disposable, recreatable checkpoint content, not named in the soft-delete
+>   list, reached only through its parent).
+> - **`order` on `GoalMilestone`, not in this doc's original sketch** — the same manual sort key
+>   `RoutineStep.order`/`PlannerBlock.order` already use, since a goal's milestones are naturally
+>   an ordered checklist. No bulk reorder endpoint exists (unlike Routine's steps) — the milestone
+>   brief's given endpoint list doesn't include one, so reordering happens by setting individual
+>   `order` values via `PATCH /goals/milestones/:id`.
+> - **`Task`/`Habit`/`Routine`/`PlannerBlock` each gained an optional `goalId` FK** (not in this
+>   doc's original sketch at all, since Goal's relationship to other entities wasn't scoped until
+>   this milestone) — `onDelete: SetNull`, so deleting a Goal detaches its linked items rather than
+>   cascading. Each is indexed on `goalId` for the progress-aggregation queries. See
+>   `docs/05-architecture.md`'s Milestone 9 note and `docs/API.md`'s Goals section for the full
+>   per-`targetType` mapping from these links to `currentValue`.
+
 ### AI & notifications
 
 ```
@@ -476,6 +542,7 @@ AdminAuditLog
 - `(userId, status)` on `Task` for the task list/dashboard queries.
 - `(userId, startTime)` on `ScheduleBlock` for calendar range queries. As implemented (Milestone 7): `PlannerDay` carries `(userId, date)` (unique + indexed) instead, since every Planner query starts from "this user's day," and `PlannerBlock` carries `(plannerDayId, order)` and `(plannerDayId, startTime)` for its own list/timeline ordering.
 - Unique constraints: `User.email`, `User.googleId`, `(HabitId, date)` on `HabitLog`, `(userId, date)` on `DailyStat`, `(userId, badgeId)` on `UserBadge`. As implemented: also `(userId, date)` on `PlannerDay` (Milestone 7) and `(userId, name)` on `Habit` (Milestone 6).
+- As implemented (Milestone 9): `Goal` carries `(userId, status)` and `(userId, archived)`; `GoalMilestone` carries `(goalId, order)` for its own list ordering, the same role `RoutineStep`'s `(routineId, order)` plays. `Task`/`Habit`/`Routine`/`PlannerBlock` each gained a plain `(goalId)` index backing the progress-aggregation queries `GoalsService` runs per `targetType`.
 
 ## Why this shape
 

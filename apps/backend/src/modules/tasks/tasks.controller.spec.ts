@@ -36,6 +36,7 @@ describe('TasksController', () => {
     estimatedMinutes: null,
     completedAt: null,
     tags: [],
+    goalId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

@@ -112,6 +112,9 @@ export class PlannerService {
     const timezone = await this.getTimezone(userId);
     const date = dto.date ?? getZonedDateString(new Date(), timezone);
     const day = await this.findOrCreateDay(userId, date);
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
 
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
@@ -129,6 +132,7 @@ export class PlannerService {
         duration: diffMinutes(startTime, endTime),
         color: dto.color,
         order: dto.order ?? (await this.nextOrder(day.id)),
+        goalId: dto.goalId,
       },
     });
 
@@ -141,6 +145,9 @@ export class PlannerService {
     dto: UpdatePlannerBlockDto,
   ): Promise<PlannerDayResponseDto> {
     const block = await this.findBlockOrThrow(userId, blockId);
+    if (dto.goalId) {
+      await this.assertGoalOwnership(userId, dto.goalId);
+    }
 
     const startTime = dto.startTime ? new Date(dto.startTime) : block.startTime;
     const endTime = dto.endTime ? new Date(dto.endTime) : block.endTime;
@@ -157,6 +164,7 @@ export class PlannerService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.color !== undefined && { color: dto.color }),
         ...(dto.order !== undefined && { order: dto.order }),
+        ...(dto.goalId !== undefined && { goalId: dto.goalId }),
         ...((dto.startTime ?? dto.endTime) && {
           startTime,
           endTime,
@@ -439,6 +447,61 @@ export class PlannerService {
         ...(type && { type }),
       },
     });
+  }
+
+  /** Count of completed PlannerBlocks of a given `type` whose `referenceId` is one of the given
+   * ids — powers GoalsService's ROUTINE_COMPLETION progress calculation (Milestone 9), which
+   * first asks RoutinesService.getStepIdsByGoal for "which RoutineStep ids belong to this goal's
+   * routines" and passes them straight through here, since PlannerBlock (not RoutineStep) is
+   * where a routine step's completion is actually recorded — see the comment on Routine in
+   * prisma/schema.prisma. Returns 0 without querying when `referenceIds` is empty, since an
+   * empty Prisma `in: []` would otherwise scan for a condition that can never match. */
+  countCompletedBlocksByReferenceIds(
+    userId: string,
+    referenceIds: string[],
+    type: PlannerBlockType,
+  ): Promise<number> {
+    if (referenceIds.length === 0) {
+      return Promise.resolve(0);
+    }
+    return this.prisma.plannerBlock.count({
+      where: {
+        completed: true,
+        type,
+        referenceId: { in: referenceIds },
+        plannerDay: { userId },
+      },
+    });
+  }
+
+  /** Sum of `duration` (minutes) across this user's completed PlannerBlocks directly linked to a
+   * given Goal (via PlannerBlock.goalId, independent of `type`/`referenceId`) — powers
+   * GoalsService's FOCUS_TIME progress calculation (Milestone 9). */
+  async sumCompletedDurationByGoal(
+    userId: string,
+    goalId: string,
+  ): Promise<number> {
+    const result = await this.prisma.plannerBlock.aggregate({
+      where: { completed: true, goalId, plannerDay: { userId } },
+      _sum: { duration: true },
+    });
+    return result._sum.duration ?? 0;
+  }
+
+  /** Same rationale as TasksService's own assertGoalOwnership: a raw existence check rather than
+   * injecting GoalsService, since GoalsModule already imports PlannerModule and importing back
+   * would be circular. */
+  private async assertGoalOwnership(
+    userId: string,
+    goalId: string,
+  ): Promise<void> {
+    const goal = await this.prisma.goal.findFirst({
+      where: { id: goalId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!goal) {
+      throw new NotFoundException('Goal not found');
+    }
   }
 
   private async getTimezone(userId: string): Promise<string> {

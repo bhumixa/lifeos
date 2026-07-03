@@ -34,6 +34,7 @@ describe('RoutinesController', () => {
     color: '#FF9800',
     description: null,
     isActive: true,
+    goalId: null,
     steps: [],
     totalDurationMinutes: 0,
     createdAt: new Date(),

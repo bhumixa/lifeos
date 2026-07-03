@@ -26,6 +26,7 @@ describe('TasksService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    goal: { findFirst: jest.Mock };
   };
 
   const userId = 'user-1';
@@ -41,6 +42,7 @@ describe('TasksService', () => {
     estimatedMinutes: null,
     completedAt: null,
     tags: [],
+    goalId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -55,6 +57,7 @@ describe('TasksService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      goal: { findFirst: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -320,6 +323,59 @@ describe('TasksService', () => {
       await expect(service.complete(userId, 'not-mine')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('goalId linking (Milestone 9)', () => {
+    it('create rejects a goalId that does not belong to the same user', async () => {
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(userId, {
+          title: 'Write report',
+          goalId: 'someone-elses-goal',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.task.create).not.toHaveBeenCalled();
+    });
+
+    it('create persists a goalId that does belong to the same user', async () => {
+      prisma.goal.findFirst.mockResolvedValue({ id: 'goal-1' });
+      prisma.task.create.mockResolvedValue({ ...mockTask, goalId: 'goal-1' });
+
+      await service.create(userId, { title: 'Write report', goalId: 'goal-1' });
+
+      expect(prisma.task.create).toHaveBeenCalledWith({
+        data: matching<Prisma.TaskUncheckedCreateInput>({ goalId: 'goal-1' }),
+      });
+    });
+
+    it('update rejects a goalId that does not belong to the same user', async () => {
+      prisma.task.findFirst.mockResolvedValue(mockTask);
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(userId, mockTask.id, { goalId: 'someone-elses-goal' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.task.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('countCompletedByGoal', () => {
+    it('scopes the count to this user and this goal', async () => {
+      prisma.task.count.mockResolvedValue(3);
+
+      const result = await service.countCompletedByGoal(userId, 'goal-1');
+
+      expect(prisma.task.count).toHaveBeenCalledWith({
+        where: {
+          userId,
+          goalId: 'goal-1',
+          status: TaskStatus.COMPLETED,
+          deletedAt: null,
+        },
+      });
+      expect(result).toBe(3);
     });
   });
 });

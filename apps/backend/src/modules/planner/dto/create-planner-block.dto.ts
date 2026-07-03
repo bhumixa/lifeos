@@ -77,4 +77,13 @@ export class CreatePlannerBlockDto {
   @Min(0)
   @Max(10_000)
   order?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Milestone 9: optional Goal this block directly contributes to (must belong to the same ' +
+      'user) — independent of `type`/`referenceId`; powers FOCUS_TIME progress.',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  goalId?: string;
 }

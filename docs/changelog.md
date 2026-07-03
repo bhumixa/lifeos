@@ -6,6 +6,94 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 9 — Goals & Goal Tracking (2026-07-03)
+
+Production-ready Goal Management System: backend `modules/goals` (11 endpoints — CRUD, archive/
+unarchive, progress recompute, milestone CRUD) and a full frontend feature (Goals Dashboard, Goal
+Detail, Goal Editor, Goal Milestones; 8 components including a progress ring, a linear timeline,
+and a milestone form dialog). Goals is now the highest-level entity in LifeOS: Task, Habit,
+Routine, and PlannerBlock each gained an optional `goalId` link, and the Dashboard's last four
+placeholder-free slots (Active Goals, Today's Goal Progress, Goal Completion %, Nearest Goal
+Deadline) are now real.
+
+Key decisions:
+- **`currentValue` is a real, persisted column — unlike Streak's fully-derived-on-read model.**
+  The milestone brief lists it as a schema field and explicitly allows manual progress updates for
+  CUSTOM goals, so `GET /goals`/`GET /goals/:id` return whatever's currently stored (cheap — no
+  source-table scan per goal in a list, keeping "avoid N+1 queries" true even for a large goal
+  list), and only `GET /goals/:id/progress` actually walks Task/Habit/Routine/PlannerBlock source
+  data for the four automatic target types and writes the refreshed value back. This is a
+  deliberate widening of Milestone 8's "derived, not stored" principle, not a reversal of it — see
+  the class doc on `Goal` in `prisma/schema.prisma` and on `GoalsService` for the full rationale,
+  including the same "known, documented staleness" trade-off Milestone 8 already accepted for
+  PlannerBlock-derived XP (a goal's `currentValue` is only as fresh as the last time its own
+  `/progress` endpoint ran).
+- **Each automatic `targetType` maps 1:1 to one of the milestone's four "contributes
+  automatically" sources** (Tasks/Habits/Routine/Planner → `TASK_COUNT`/`HABIT_COMPLETION`/
+  `ROUTINE_COMPLETION`/`FOCUS_TIME`), via that source's own new optional `goalId` column —
+  `TASK_COUNT` counts completed Tasks linked to the goal, `HABIT_COMPLETION` counts `HabitLog`
+  rows for linked Habits, `ROUTINE_COMPLETION` asks Routines for the step ids of linked Routines
+  then asks Planner how many of those are completed (the same two-service composition
+  `PlannerService` itself already does for generation), and `FOCUS_TIME` sums the duration of the
+  goal's own directly-linked completed `PlannerBlock`s. `CUSTOM` has no automatic source at all.
+- **`goalId` on Task/Habit/Routine/PlannerBlock is additive only** — a small optional column plus
+  an ownership-checked field on each module's existing create/update DTOs, reusing the "reuse
+  services, small new exported methods" pattern Streaks (Milestone 8) already established
+  (`TasksService.countCompletedByGoal`, `HabitsService.countLogsByGoal`,
+  `RoutinesService.getStepIdsByGoal`, `PlannerService.countCompletedBlocksByReferenceIds` /
+  `.sumCompletedDurationByGoal`). Goal ownership validation inside those four services is a raw
+  Prisma existence check rather than injecting `GoalsService`, since `GoalsModule` already imports
+  all four of theirs for progress aggregation and importing back would be circular. Existing
+  frontend forms for Task/Habit/Routine/Planner were **not** wired up with a "link to goal" picker
+  UI in this milestone — the backend supports it, but only Goals' own pages currently set it; see
+  Remaining Work.
+- **`GoalMilestone` follows `RoutineStep`'s precedent exactly**: no owner column of its own
+  (reached only through its parent Goal, ownership enforced by joining `goal: { userId }`), hard
+  delete (disposable, recreatable content, not named in `docs/06-database-design.md`'s soft-delete
+  list — unlike `Goal` itself, which *is* named there and stays soft-deleted like Task/Habit), and
+  a manual `order` sort key with append-on-create. Milestone completion (`completed`/
+  `completedAt`) is deliberately **not** wired into `Goal.currentValue` — the brief's "contribute
+  automatically" rules name only Task/Habit/Routine/PlannerBlock completions, so a milestone is a
+  user-tracked checkpoint alongside a goal's progress, not another progress input.
+- **`PATCH /goals/milestones/:id` and `DELETE /goals/milestones/:id` are not nested under a goal
+  id**, per the milestone's own given endpoint list — the controller declares them before the
+  generic `PATCH/DELETE /goals/:id` routes (same literal-before-param rule
+  `habits.controller.ts`/`routines.controller.ts` already document) so a request to
+  `/goals/milestones/abc` is never swallowed by `:id` matching `"milestones"`. Ownership is still
+  enforced by joining through the milestone's parent goal, not a URL-embedded goal id.
+- **`category` stays a free-text string, not an enum** — the milestone brief's Enums section
+  defines `GoalStatus`/`GoalPriority`/`GoalTargetType` but no category enum, so `Goal.category`
+  follows `Habit.category`'s own precedent instead of `docs/06-database-design.md`'s original
+  `GoalCategory` enum sketch.
+- **Frontend "Goal Editor" is a page, not a dialog** — the brief lists it as a page, matching
+  `RoutineEditorPage`'s precedent (Milestone 5) rather than Task/Habit's form-dialog pattern.
+  "Goal Timeline" has no existing linear-timeline component to reuse (Planner's time-grid is a
+  different, hour-by-hour shape), so it's a new small presentational component, hand-rolled
+  CSS/SVG like every other visual in this codebase (no charting library). "Progress Ring" wraps
+  `HabitProgressRing` the same way Streaks' `ConsistencyRing` already does. "Archive Dialog" is
+  **not** a new component — it's the shared `ConfirmDialog`, reused with non-destructive copy, the
+  same "don't duplicate an existing shared component" call Milestone 6 made for its own "Habit
+  Empty State."
+- **Dashboard's four Goal widgets are computed client-side from one `GET /goals` call**
+  (`DashboardGoalsService`), the same "derived via local computation" shape
+  `DashboardRoutineSummaryService` already establishes — no new backend summary endpoint, per
+  `docs/05-architecture.md`'s "avoid creating unnecessary dashboard-specific endpoints" rule.
+- **Verification**: 64 new backend unit tests (goal-progress util, `GoalsService`/
+  `GoalsController`, plus additive coverage on Tasks/Habits/Routines/Planner for their new
+  `goalId` ownership checks and `countCompletedByGoal`/`countLogsByGoal`/`getStepIdsByGoal`/
+  `countCompletedBlocksByReferenceIds`/`sumCompletedDurationByGoal` methods) plus the existing 248
+  all pass (312 total); 23 new frontend unit tests (API service/store/display-util/dashboard
+  service) plus the existing 194 all pass (217 total). The running backend was exercised directly
+  against a live Postgres database via curl — goal creation, milestone add/update via the
+  non-nested `/goals/milestones/:id` route, linking a Task to a goal and completing it,
+  `GET /goals/:id/progress` correctly recomputing `currentValue` (0 → 1 of 3, 33%), archive/
+  unarchive, and a cross-user `GET /goals/:id` returning 404 — and the frontend was driven
+  end-to-end with a headless Chromium session (register → Dashboard's Goal stats → Goals Dashboard
+  → create a goal via the Editor page → Goal Detail → Goal Milestones → add a milestone → back to
+  the Goals Dashboard showing the new goal), confirming real data renders throughout with no
+  genuine console errors (the one observed 401 is the pre-login auth-probe every other milestone's
+  verification also sees, unrelated to Goals).
+
 ## Milestone 8 — Streak Engine & Gamification Foundation (2026-07-03)
 
 Production-ready consistency/motivation layer: backend `modules/streaks` (7 endpoints across

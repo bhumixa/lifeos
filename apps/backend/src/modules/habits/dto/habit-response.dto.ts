@@ -16,6 +16,7 @@ export class HabitResponseDto {
   @ApiProperty({ nullable: true }) category!: string | null;
   @ApiProperty({ nullable: true }) reminderTime!: string | null;
   @ApiProperty() isActive!: boolean;
+  @ApiProperty({ nullable: true }) goalId!: string | null;
   @ApiProperty() currentPeriodCount!: number;
   @ApiProperty() completionPercent!: number;
   @ApiProperty() todayCount!: number;

@@ -34,6 +34,7 @@ describe('HabitsService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    goal: { findFirst: jest.Mock };
   };
 
   const userId = 'user-1';
@@ -51,6 +52,7 @@ describe('HabitsService', () => {
     category: null,
     reminderTime: null,
     isActive: true,
+    goalId: null,
     createdAt: new Date('2026-06-01T00:00:00.000Z'),
     updatedAt: new Date('2026-06-01T00:00:00.000Z'),
     deletedAt: null,
@@ -84,6 +86,7 @@ describe('HabitsService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      goal: { findFirst: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -524,6 +527,45 @@ describe('HabitsService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('goalId linking (Milestone 9)', () => {
+    it('create rejects a goalId that does not belong to the same user', async () => {
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(userId, {
+          name: 'Drink water',
+          icon: 'local_drink',
+          color: '#03A9F4',
+          goalId: 'someone-elses-goal',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.habit.create).not.toHaveBeenCalled();
+    });
+
+    it('update rejects a goalId that does not belong to the same user', async () => {
+      prisma.habit.findFirst.mockResolvedValue(mockHabit);
+      prisma.goal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(userId, mockHabit.id, { goalId: 'someone-elses-goal' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.habit.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('countLogsByGoal', () => {
+    it('counts logs for habits linked to this goal, scoped to this user', async () => {
+      prisma.habitLog.count.mockResolvedValue(12);
+
+      const result = await service.countLogsByGoal(userId, 'goal-1');
+
+      expect(prisma.habitLog.count).toHaveBeenCalledWith({
+        where: { habit: { userId, goalId: 'goal-1', deletedAt: null } },
+      });
+      expect(result).toBe(12);
     });
   });
 });

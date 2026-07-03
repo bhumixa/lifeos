@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation.js';
 import { PrismaModule } from './database/prisma/prisma.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { GoalsModule } from './modules/goals/goals.module.js';
 import { HabitsModule } from './modules/habits/habits.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { PlannerModule } from './modules/planner/planner.module.js';
@@ -26,6 +27,7 @@ import { UsersModule } from './modules/users/users.module.js';
     HabitsModule,
     PlannerModule,
     StreaksModule,
+    GoalsModule,
   ],
 })
 export class AppModule {}

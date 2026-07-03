@@ -17,6 +17,9 @@ export interface PlannerBlock {
   color: string | null;
   completed: boolean;
   order: number;
+  /** Milestone 9: optional Goal this block directly contributes to (independent of
+   * type/referenceId) — powers FOCUS_TIME progress. */
+  goalId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +47,9 @@ export interface CreatePlannerBlockRequest {
   endTime: string;
   color?: string;
   order?: number;
+  /** Milestone 9: optional Goal this block directly contributes to (must belong to the same
+   * user). */
+  goalId?: string;
 }
 
 export type UpdatePlannerBlockRequest = Partial<Omit<CreatePlannerBlockRequest, 'date'>>;

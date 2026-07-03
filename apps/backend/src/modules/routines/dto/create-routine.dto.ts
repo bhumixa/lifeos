@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -58,4 +59,12 @@ export class CreateRoutineDto {
   @ValidateNested({ each: true })
   @Type(() => CreateRoutineStepDto)
   steps?: CreateRoutineStepDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Milestone 9: optional Goal this routine contributes to (must belong to the same user).',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  goalId?: string;
 }

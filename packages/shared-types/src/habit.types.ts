@@ -24,6 +24,8 @@ export interface Habit {
   todayCount: number;
   /** todayCount > 0 — drives the Today's Habits page and the dashboard Quick Complete panel. */
   completedToday: boolean;
+  /** Milestone 9: optional Goal this habit contributes to. */
+  goalId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,6 +50,8 @@ export interface CreateHabitRequest {
   category?: string;
   reminderTime?: string;
   isActive?: boolean;
+  /** Milestone 9: optional Goal this habit contributes to (must belong to the same user). */
+  goalId?: string;
 }
 
 export type UpdateHabitRequest = Partial<CreateHabitRequest>;

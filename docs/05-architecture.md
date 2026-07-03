@@ -134,6 +134,40 @@ streak/consistency math needs; adding one whose only caller would be Streaks isn
 than Streaks owning its own narrow, read-only query over a table this milestone is specifically
 about.
 
+**Milestone 9 (Goals) imports `TasksModule`/`HabitsModule`/`RoutinesModule`/`PlannerModule` — all
+four — the widest fan-in of any module so far**, since a Goal's progress can come from any of the
+four "contributes automatically" sources named in the milestone brief. `GoalsService` follows the
+exact same composition shape `StreaksService` already established: batch-fetch via each owning
+service's own small, additive, ownership-scoped method
+(`TasksService.countCompletedByGoal`, `HabitsService.countLogsByGoal`,
+`RoutinesService.getStepIdsByGoal` + `PlannerService.countCompletedBlocksByReferenceIds` for
+`ROUTINE_COMPLETION`'s two-hop lookup, `PlannerService.sumCompletedDurationByGoal`), never
+Prisma-querying another module's table directly. Unlike Streaks, Goals' own domain (`Goal`/
+`GoalMilestone`) has nothing *else* reusing it yet, so `GoalsModule` exports nothing.
+
+**`Task`/`Habit`/`Routine`/`PlannerBlock` each gained a small, additive, optional `goalId` column**
+so they can opt into contributing to a Goal — the reverse direction of the fan-in above. Validating
+that a client-supplied `goalId` belongs to the requesting user happens as a **raw Prisma existence
+check inside each of those four services** (`assertGoalOwnership`), not by injecting `GoalsService`
+— `GoalsModule` already imports all four of theirs, so importing `GoalsModule` back into any of
+them would be circular. This is the same "ownership check without owning the relationship" pattern
+`PlannerBlock.referenceId` already uses for Task/RoutineStep/Habit ids (no FK constraint, since the
+referenced table depends on context) — except `goalId` *is* a real FK here, because unlike
+`referenceId` it only ever points at one table.
+
+**Goals does not introduce `EventEmitter2` either, for the same reason Streaks didn't**: wiring
+"Task completed → recompute linked Goal's progress" as a push event would mean modifying
+`TasksService`/`HabitsService`/`RoutinesService`/`PlannerService` to emit completion events — a
+real change to four already-shipped, approved modules. Instead, `GoalsService.getProgress` (`GET
+/goals/:id/progress`) is an explicit **pull**, called on demand rather than triggered by a write
+elsewhere. This is a deliberate step *beyond* Streaks' own pull model, though: Streaks recomputes
+everything on every `GET`, fully derived and never stored; Goals persists `currentValue` and only
+refreshes it when `/progress` is explicitly called (see the class doc on `Goal` in
+`prisma/schema.prisma`) — cheaper for `GET /goals` list views, at the cost of `currentValue`
+potentially lagging behind source data until the next explicit refresh. A future milestone wanting
+Goals to stay live without an explicit refresh call is the natural next place to introduce
+`EventEmitter2`, exactly as this doc has anticipated since Milestone 7.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:
