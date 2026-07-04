@@ -1,0 +1,21 @@
+@if (loading()) {
+  <div class="notification-list">
+    @for (i of [0, 1, 2]; track i) {
+      <app-skeleton height="64px" />
+    }
+  </div>
+} @else if (notifications().length === 0) {
+  <app-empty-state icon="notifications_none" title="No notifications" message="You're all caught up." />
+} @else {
+  <div class="notification-list">
+    @for (notification of notifications(); track notification.id) {
+      <app-notification-card
+        [notification]="notification"
+        [compact]="compact()"
+        (read)="read.emit($event)"
+        (dismissed)="dismissed.emit($event)"
+        (removed)="removed.emit($event)"
+      />
+    }
+  </div>
+}

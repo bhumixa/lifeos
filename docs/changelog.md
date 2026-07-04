@@ -6,6 +6,131 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 12 — Notification Engine (2026-07-04)
+
+Production-ready, event-driven Notification Engine: backend `modules/notifications` (8 endpoints —
+list/unread/preferences get+patch/read/read-all/dismiss/delete) plus a real `EventEmitter2` event
+bus (`@nestjs/event-emitter`, the first milestone to actually install and wire it after every prior
+milestone since Planner anticipated but declined to), and a full frontend feature (Notification
+Center, Notification Settings; 8 components — Bell, Badge, List, Card, Filter, Preferences,
+Timeline, Unread Counter). The Navbar's placeholder "No notifications yet." menu is now the real
+NotificationBell, and the Dashboard gained two new stat cards (Unread Notifications, Upcoming
+Reminders) plus a real Recent Activity feed, replacing its last empty-state-only placeholder.
+
+Key decisions:
+- **`EventEmitter2` is finally installed and globally registered** (`EventEmitterModule.forRoot()`
+  in `AppModule`) — every milestone since Planner (Milestone 7) flagged "Streaks/Goals reacting to
+  a write elsewhere" as the natural first use case, then chose a pull/read-time or raw-Prisma-read
+  model instead specifically to avoid modifying already-shipped modules. This milestone makes the
+  opposite, and only defensible, call for the same reason those declined: a Notification Engine
+  with no real domain-event source would be architecture without substance. The diff to each
+  existing service is deliberately the smallest possible — one new constructor parameter
+  (`EventEmitter2`), one `this.eventEmitter.emit(...)` call at the point the milestone brief's own
+  named event already occurs — with no change to any existing method's return value, validation, or
+  side effects. `TasksService.complete`, `HabitsService.createLog`, `PlannerService.complete`
+  (guarded to the true-going `completed` transition only), `GoalsService.update` (guarded to the
+  explicit transition into `GoalStatus.COMPLETED` only), `JournalService.create`, and
+  `AchievementsService.evaluateAndUnlock` (once per newly-unlocked achievement) each gained exactly
+  one such emission; every existing test for those services keeps passing unchanged once its own
+  `TestingModule` providers array gets the same one-line `{ provide: EventEmitter2, useValue: {
+  emit: jest.fn() } }` addition.
+- **`CalendarEventStartingEvent` is the one event that stays unemitted** — "a calendar event is
+  starting soon" is a time-based condition, not a reaction to a write, so there's no natural call
+  site to hang an emission off. The event class, `NotificationSchedulerService`'s `@OnEvent`
+  listener for it, and a real, unit-tested `scanUpcomingCalendarEvents` scan method all exist; none
+  of it runs automatically yet, the same "documented, tested, never automatically invoked" shape
+  Calendar's own `recurrence.util.ts` already established for "recurring event preparation" in
+  Milestone 11.
+- **Notifications are created exclusively by `NotificationSchedulerService`, never by a
+  controller** — there is no `POST /notifications` endpoint at all, per the milestone's own "do not
+  deliver notifications immediately inside controllers" rule. Every notification traces back to one
+  of the six wired domain events.
+- **Preferences gate creation entirely, not just delivery.** `NotificationPreferencesService
+  .isCategoryEnabled` is checked before a `Notification` row is even created — a disabled category
+  (e.g. `enableHabits: false`) means no row, no queue entry, nothing to ever mark read or dismiss,
+  not merely a delivered-but-suppressed notification.
+- **Quiet hours push `scheduledFor` later, computed timezone-aware** (`utils/quiet-hours.util.ts`,
+  reusing `planner/utils/timezone.util.ts`'s zoned-time helpers directly — the same cross-module
+  file-reuse precedent Streaks/Journal/Calendar already set for that file, plus one additive
+  export, `getZonedTimeOfDay`, for minute-precision "HH:mm" boundary comparisons `getZonedHour`
+  alone couldn't support). A same-day quiet window (e.g. 13:00-14:00) pushes to that same day's end;
+  an overnight window (e.g. 22:00-07:00) correctly pushes to the *next* calendar day's end when
+  "now" falls on the evening side of it. `start === end` is treated as disabled, not "quiet all day."
+- **`NotificationPreference` auto-creates with defaults on first access**, the same "find-or-create
+  on first read" convention `PlannerDay`/`HabitLog` already establish for their own per-user rows —
+  not provisioned at registration, since nothing needed it before this milestone. `timezone` is
+  seeded from `User.timezone` at that moment (an own, independent column from then on), the same
+  shape `Calendar.timezone` already uses.
+- **`NotificationQueue` is a single mutable row per Notification, not an append-only log** — unlike
+  `CalendarSync`'s deliberately-append-only "one row per attempt" design, `attempts`/`nextAttempt`/
+  `lastError`/`status` describe one ongoing retry process, so `NotificationQueueService.processDue`
+  rewrites the same row in place. Exponential backoff (`utils/retry-backoff.util.ts`, 2 minutes
+  doubling, capped at 60) runs for up to `MAX_DELIVERY_ATTEMPTS` (5, a documented placeholder,
+  the same "product owner finalizes later" precedent `FreezeDaysService.FREEZE_DAYS_PER_MONTH`
+  already sets) before both rows are marked terminally `FAILED`. `processDue` is fully implemented
+  and unit-tested but never automatically scheduled — the seam a future `main.worker.ts` background
+  process (anticipated since `docs/05-architecture.md`, still unbuilt) would call on an interval.
+- **Channel architecture mirrors Calendar's provider pattern exactly** — `INotificationChannel`
+  (one method, `send`) is the interface `NotificationDispatcherService` depends on exclusively;
+  `InAppChannel` is real (a `Notification` row already *is* the in-app delivery — nothing external
+  to do, the same reasoning `LocalCalendarProvider.sync` uses); `EmailChannel`/`PushChannel`/
+  `SmsChannel`/`DesktopChannel` all extend a shared `PlaceholderNotificationChannel` base that
+  always returns an explicit `NOT_IMPLEMENTED` result, never a thrown exception or silent no-op —
+  the same shape `RemoteCalendarProvider` established for Google/Microsoft/Apple/iCal.
+  `NotificationChannelRegistry` maps channel type to adapter, the same data-driven-catalog role
+  `CalendarProviderRegistry` plays. `NotificationDispatcherService.resolveChannels` always attempts
+  `IN_APP`, plus `EMAIL`/`PUSH` only when the user's own preference flag is on; `SMS`/`DESKTOP` have
+  no corresponding preference flag in this milestone's literal field list, so they exist in the
+  registry as a ready extensibility seam but nothing routes to them yet.
+- **A single field (`Notification.status`) carries both the delivery lifecycle
+  (PENDING/QUEUED/SENT/FAILED) and the user-driven post-delivery state (READ/DISMISSED)** — matching
+  the milestone brief's own literal enum exactly rather than splitting into two columns.
+  "Unread" (`GET /notifications/unread`, the unread count) means `readAt: null` *and* `status` not
+  `DISMISSED` — a dismissed notification is deliberately hidden from both, the same "dismiss means
+  stop showing me this, not I read it" distinction a notification feed needs.
+- **Hard delete, like Routine/PlannerBlock/Calendar** — a notification is disposable, re-derivable
+  content (the event/source record that produced it is still the record of truth), not named in
+  `docs/06-database-design.md`'s soft-delete list.
+- **Frontend: `NotificationsStore` is `providedIn: 'root'`, unlike GoalsStore's page-scoped
+  equivalent** — it's the one feature store two independent parts of the shell need simultaneously
+  (the Navbar's `NotificationBell` for unread count/preview, and the Notification Center page for
+  the full filtered list), so a mark-read/dismiss from either place reflects in the other without a
+  reload, the same "single source of truth, several consumers" role `AuthService`'s own signals
+  already play app-wide.
+- **`NotificationBell` lives in `features/notifications/`, not `shared/` or `layout/`, despite being
+  mounted in the app shell's Navbar** — it needs live `NotificationsStore` state, so `Navbar`
+  imports it directly, the same "layout composes a sibling feature's exported service/component"
+  precedent `DashboardCalendarService` already set for cross-feature composition, just applied to
+  the shell instead of another feature page.
+- **`NotificationTimeline` groups Today/Yesterday/Earlier** — a hand-rolled grouped list (no
+  charting/timeline library), matching the exact convention Goals' `GoalTimeline`/Journal's
+  `JournalCalendar`/Calendar's `MiniCalendar` already established for this codebase's visuals.
+  `NotificationList` is the shared rendering primitive both `NotificationTimeline`'s per-group
+  sections and the Dashboard's `RecentActivity` compose (via its `compact` input), rather than two
+  separate list implementations.
+- **Dashboard's Recent Activity is real for the first time** — it was a pure empty-state placeholder
+  since Milestone 3 ("a real activity feed needs the Tasks/Habits/Journal modules first"); now that
+  every one of those modules' completions already flows into a Notification, the most recent few
+  notifications (via the same `DashboardNotificationsService` composing `GET /notifications/unread`
+  and two `GET /notifications` list calls) *are* recent activity across the whole app, with no new
+  dashboard-specific endpoint — the same "derived via local composition" shape every prior Dashboard
+  service already establishes.
+- **Verification**: 73 new backend unit tests (quiet-hours/retry-backoff utils, channel registry and
+  placeholder-channel behavior, preferences get-or-create/update/category-gating, queue enqueue and
+  all three retry outcomes, core CRUD including cross-user isolation on every mutating endpoint,
+  scheduler event-subscriber/preference-gating/quiet-hours/calendar-scan behavior, controller
+  delegation) plus the existing 399 all pass (472 total); 27 new frontend unit tests (API service,
+  store, display utils, dashboard service) plus the existing 281 all pass (308 total). Backend and
+  frontend builds, Prisma migration, and Swagger generation all verified clean.
+- **Remaining work**: real Email/Push/SMS/Desktop providers behind their respective channel
+  adapters (all four are documented `NOT_IMPLEMENTED` placeholders by design this milestone); a
+  background worker process (`main.worker.ts`, still unbuilt) to actually call
+  `NotificationQueueService.processDue` and `NotificationSchedulerService
+  .scanUpcomingCalendarEvents` on an interval — both are implemented and unit-tested but never
+  automatically invoked; `SMS`/`DESKTOP` preference toggles (the channels exist in the registry, but
+  no `enableSms`/`enableDesktop` field was added to `NotificationPreference`, since this milestone's
+  literal field list doesn't include one).
+
 ## Milestone 11 — Calendar & External Integrations (2026-07-04)
 
 Production-ready local Calendar module, architected as the scheduling layer integrating Planner,

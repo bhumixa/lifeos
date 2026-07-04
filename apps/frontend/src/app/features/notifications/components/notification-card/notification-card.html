@@ -1,0 +1,46 @@
+<div class="notification-card" [class.notification-card--unread]="isUnread" [class.notification-card--compact]="compact()">
+  <mat-icon class="notification-card__icon">{{ typeIcons[notification().type] }}</mat-icon>
+
+  <div class="notification-card__body">
+    <div class="notification-card__header">
+      <span class="notification-card__title">{{ notification().title }}</span>
+      <app-badge [label]="priorityLabels[notification().priority]" [variant]="priorityVariants[notification().priority]" />
+    </div>
+    <p class="notification-card__message">{{ notification().message }}</p>
+    <span class="notification-card__meta">{{ typeLabels[notification().type] }} · {{ relativeTime() }}</span>
+  </div>
+
+  @if (!compact()) {
+    <div class="notification-card__actions">
+      @if (isUnread) {
+        <button
+          type="button"
+          mat-icon-button
+          matTooltip="Mark as read"
+          aria-label="Mark as read"
+          (click)="read.emit(notification().id)"
+        >
+          <mat-icon>done</mat-icon>
+        </button>
+      }
+      <button
+        type="button"
+        mat-icon-button
+        matTooltip="Dismiss"
+        aria-label="Dismiss"
+        (click)="dismissed.emit(notification().id)"
+      >
+        <mat-icon>visibility_off</mat-icon>
+      </button>
+      <button
+        type="button"
+        mat-icon-button
+        matTooltip="Delete"
+        aria-label="Delete"
+        (click)="removed.emit(notification().id)"
+      >
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    </div>
+  }
+</div>

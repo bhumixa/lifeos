@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import { ACHIEVEMENT_DEFINITIONS } from './utils/achievement-definitions.js';
@@ -57,6 +58,7 @@ describe('AchievementsService', () => {
       providers: [
         AchievementsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

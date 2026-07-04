@@ -1,5 +1,10 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
+import {
+  AchievementUnlockedEvent,
+  NOTIFICATION_EVENTS,
+} from '../../events/index.js';
 import type { AchievementResponseDto } from './dto/achievement-response.dto.js';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -26,7 +31,10 @@ import {
  */
 @Injectable()
 export class AchievementsService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     for (const definition of ACHIEVEMENT_DEFINITIONS) {
@@ -99,25 +107,40 @@ export class AchievementsService implements OnModuleInit {
       unlocks.map((unlock) => unlock.achievementId),
     );
 
-    const newlyUnlockedIds = ACHIEVEMENT_DEFINITIONS.filter((definition) => {
+    const newlyUnlocked = ACHIEVEMENT_DEFINITIONS.filter((definition) => {
       const achievement = achievementByCode.get(definition.code);
       return (
         achievement &&
         !unlockedAchievementIds.has(achievement.id) &&
         definition.isUnlocked(context)
       );
-    }).map((definition) => achievementByCode.get(definition.code)!.id);
+    }).map((definition) => achievementByCode.get(definition.code)!);
 
-    if (newlyUnlockedIds.length === 0) {
+    if (newlyUnlocked.length === 0) {
       return;
     }
 
     await this.prisma.userAchievement.createMany({
-      data: newlyUnlockedIds.map((achievementId) => ({
+      data: newlyUnlocked.map((achievement) => ({
         userId,
-        achievementId,
+        achievementId: achievement.id,
       })),
       skipDuplicates: true,
     });
+
+    // One AchievementUnlockedEvent per newly-unlocked achievement (Milestone 12) — emitted after
+    // the createMany above, so a listener that reads UserAchievement back (e.g. a future
+    // audit/analytics consumer) always sees the row already persisted.
+    for (const achievement of newlyUnlocked) {
+      this.eventEmitter.emit(
+        NOTIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
+        new AchievementUnlockedEvent(
+          userId,
+          achievement.id,
+          achievement.title,
+          achievement.xpReward,
+        ),
+      );
+    }
   }
 }

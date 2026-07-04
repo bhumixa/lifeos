@@ -625,6 +625,94 @@ Notification
   payload           json
 ```
 
+> **As implemented (Milestone 12 — Notification Engine):** `Notification`'s actual field list and
+> `NotificationType` enum follow that milestone's own brief rather than this doc's original sketch,
+> and `NotificationPreference`/`NotificationQueue` are wholly new tables not sketched here at all:
+>
+> ```
+> Notification
+>   id                uuid PK
+>   userId            FK -> User
+>   title             string
+>   message           string
+>   type              enum(TASK, HABIT, PLANNER, GOAL, JOURNAL, CALENDAR, STREAK, ACHIEVEMENT, SYSTEM)
+>   priority          enum(LOW, NORMAL, HIGH, CRITICAL), default NORMAL
+>   status            enum(PENDING, QUEUED, SENT, FAILED, READ, DISMISSED), default PENDING
+>   scheduledFor      timestamp
+>   deliveredAt       timestamp, nullable
+>   readAt            timestamp, nullable
+>   payload           json, nullable
+>   createdAt / updatedAt
+>
+> NotificationPreference
+>   id                 uuid PK
+>   userId             FK -> User, unique (1:1)
+>   quietHoursStart    string, nullable   -- "HH:mm", same convention as Habit.reminderTime
+>   quietHoursEnd      string, nullable
+>   timezone           string, default "UTC"
+>   enableTasks/Habits/Planner/Goals/Journal/Calendar/Streaks/Achievements   boolean, default true
+>   enableEmail        boolean, default false
+>   enablePush         boolean, default false
+>   enableInApp        boolean, default true
+>   createdAt / updatedAt
+>
+> NotificationQueue
+>   id                uuid PK
+>   notificationId    FK -> Notification, unique (1:1)
+>   attempts          int, default 0
+>   nextAttempt       timestamp, nullable
+>   lastError         string, nullable
+>   status            string, default "PENDING"   -- plain string, not a new enum; see below
+>   createdAt / updatedAt
+> ```
+>
+> - **`NotificationType` is scoped to this codebase's own feature/module set**
+>   (TASK/HABIT/PLANNER/GOAL/JOURNAL/CALENDAR/STREAK/ACHIEVEMENT/SYSTEM), not this doc's original
+>   reminder-category sketch (WAKE/WATER/MEAL/EXERCISE/PRAYER/MEDITATION/MEETING/TASK/SLEEP/
+>   AI_DIGEST) — the milestone brief's own event sources (Tasks/Habits/Planner/Goals/Journal/
+>   Calendar/Streaks/Achievements) are what a Notification's `type` needs to distinguish, since
+>   `NotificationPreferencesService.isCategoryEnabled` gates creation per-type. A future reminder
+>   scheduler (wake/water/meal/etc., still unbuilt) would most naturally map onto the existing
+>   `SYSTEM` type or a future additive enum value, not require a schema redesign.
+> - **No `channel` column.** This doc's original sketch stored one channel per Notification;
+>   Milestone 12 instead resolves channels *at dispatch time* from the user's own
+>   `NotificationPreference` (`NotificationDispatcherService.resolveChannels` — always `IN_APP`, plus
+>   `EMAIL`/`PUSH` when their own flag is on), since a single Notification can legitimately go out
+>   over more than one channel at once, and which channels apply is a per-user setting, not a
+>   per-notification fact worth storing redundantly on every row.
+> - **`sentAt` renamed `deliveredAt`, plus a new `readAt`** — the milestone's own field list asks for
+>   both a delivery instant and a read instant, since `status` alone (which folds delivery lifecycle
+>   and read/dismiss state into one field — see the class doc on `Notification` in
+>   `prisma/schema.prisma`) doesn't carry timestamps for either transition.
+> - **`title`/`message` are new, required fields** — this doc's original sketch had neither;
+>   `NotificationTemplateService` builds them from whichever domain event fired, and every list/
+>   read/unread endpoint returns them directly rather than requiring the client to synthesize display
+>   text from `type`/`payload` itself.
+> - **Hard delete, like Routine/PlannerBlock/Calendar** — not named in this doc's soft-delete list;
+>   a notification is disposable, re-derivable content (the source event's own record — a Task, a
+>   HabitLog, etc. — remains the record of truth), not the irreplaceable content that principle
+>   protects.
+> - **`NotificationPreference` auto-creates with defaults on first access** (the same "find-or-create
+>   on first read" convention `PlannerDay`/`HabitLog` already establish for their own per-user rows),
+>   not provisioned at registration — nothing needed it before this milestone. `timezone` is seeded
+>   from `User.timezone` at that moment and is its own independent column from then on, the same
+>   shape `Calendar.timezone` already uses.
+> - **`NotificationQueue` is a single mutable row per Notification, not an append-only log** — unlike
+>   `CalendarSync`'s deliberately append-only "one row per sync attempt" design, `attempts`/
+>   `nextAttempt`/`lastError`/`status` describe one ongoing retry process for one Notification, so
+>   `NotificationQueueService.processDue` rewrites the same row in place across retries rather than
+>   inserting a new one each time.
+> - **`NotificationQueue.status` is a plain string, not a new enum** — the milestone's own Enums
+>   section names only `NotificationType`/`NotificationPriority`/`NotificationStatus` (all three
+>   already modeled directly on `Notification`), so, matching the exact precedent `CalendarSync.status`
+>   already set, a fourth enum isn't invented for a field the brief didn't ask to be one;
+>   `NotificationQueueService` writes and validates one of "PENDING"/"SENT"/"FAILED" on every row.
+> - **Indexes**: `(userId, status)`, `(userId, scheduledFor)`, and `(userId, readAt)` on
+>   `Notification` — the dominant "this user's notifications, filtered/sorted by delivery or read
+>   state" query patterns `NotificationsService.findAll`/`findUnread` run. `(status, nextAttempt)` on
+>   `NotificationQueue` backs `NotificationQueueService.processDue`'s own "what's due right now"
+>   query.
+
 ### Analytics & gamification
 
 > **Superseded in part by Milestone 8** — see the note under "Habits & streaks" above.
@@ -708,6 +796,7 @@ AdminAuditLog
 - Unique constraints: `User.email`, `User.googleId`, `(HabitId, date)` on `HabitLog`, `(userId, date)` on `DailyStat`, `(userId, badgeId)` on `UserBadge`. As implemented: also `(userId, date)` on `PlannerDay` (Milestone 7) and `(userId, name)` on `Habit` (Milestone 6).
 - As implemented (Milestone 9): `Goal` carries `(userId, status)` and `(userId, archived)`; `GoalMilestone` carries `(goalId, order)` for its own list ordering, the same role `RoutineStep`'s `(routineId, order)` plays. `Task`/`Habit`/`Routine`/`PlannerBlock` each gained a plain `(goalId)` index backing the progress-aggregation queries `GoalsService` runs per `targetType`.
 - As implemented (Milestone 11): `Calendar` carries `(userId, enabled)`. `CalendarEvent` carries `(calendarId, startTime)` for the Month/Week/Day views' range queries, plus a plain index on each of its four optional cross-link columns (`plannerBlockId`, `taskId`, `goalId`, `journalEntryId`) — the same "index every optional cross-link" convention `goalId` already gets everywhere else. `CalendarSync` carries `(calendarId, createdAt)` for "most recent sync attempt" lookups.
+- As implemented (Milestone 12): `Notification` carries `(userId, status)`, `(userId, scheduledFor)`, and `(userId, readAt)` for `NotificationsService.findAll`/`findUnread`'s own filter/sort patterns. `NotificationQueue` carries a unique `(notificationId)` (its 1:1 relation to `Notification`) plus `(status, nextAttempt)` backing `NotificationQueueService.processDue`'s "what's due right now" query. `NotificationPreference` carries a unique `(userId)` for its own 1:1 relation.
 
 ## Why this shape
 

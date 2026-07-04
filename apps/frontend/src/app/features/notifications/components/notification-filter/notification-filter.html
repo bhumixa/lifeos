@@ -1,0 +1,36 @@
+<div class="notification-filter">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Status</mat-label>
+    <mat-select [value]="status" (selectionChange)="onStatusChange($event.value)">
+      <mat-option value="">All statuses</mat-option>
+      @for (entry of statuses; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Type</mat-label>
+    <mat-select [value]="type" (selectionChange)="onTypeChange($event.value)">
+      <mat-option value="">All types</mat-option>
+      @for (entry of types; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Priority</mat-label>
+    <mat-select [value]="priority" (selectionChange)="onPriorityChange($event.value)">
+      <mat-option value="">All priorities</mat-option>
+      @for (entry of priorities; track entry[0]) {
+        <mat-option [value]="entry[0]">{{ entry[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <button type="button" mat-stroked-button (click)="clear()">
+    <mat-icon>filter_alt_off</mat-icon>
+    Clear
+  </button>
+</div>

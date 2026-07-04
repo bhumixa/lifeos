@@ -12,6 +12,9 @@ import { authGuard } from './core/auth/auth.guard';
  * `Journal` nav item that was already in Milestone 3's original list (like Habits before it), so
  * no nav change was needed — just replacing its placeholder with a real `loadChildren`. Calendar
  * (Milestone 11) added a new `/calendar` nav item — no pre-existing placeholder pointed at it.
+ * Notifications (Milestone 12) likewise added a new `/notifications` nav item — its Notification
+ * Center is also reachable via the Navbar's own NotificationBell "View all" link, but gets a real
+ * nav item too for direct discoverability, matching every other built feature.
  * Each of these has a real feature module, lazy-loaded via their own `*Routes`.
  * `data.breadcrumb`/`data.icon` feed both the sidenav (layout/sidenav/nav-items.ts) and
  * BreadcrumbService — keep labels in sync with nav-items.ts.
@@ -63,6 +66,11 @@ export const routes: Routes = [
       {
         path: 'calendar',
         loadChildren: () => import('./features/calendar/calendar.routes').then((m) => m.calendarRoutes),
+      },
+      {
+        path: 'notifications',
+        loadChildren: () =>
+          import('./features/notifications/notifications.routes').then((m) => m.notificationsRoutes),
       },
       {
         path: 'ai-coach',

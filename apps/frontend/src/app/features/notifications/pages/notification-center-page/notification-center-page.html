@@ -1,0 +1,32 @@
+<section class="notification-center-page">
+  <header class="notification-center-page__header">
+    <div>
+      <h1>Notifications</h1>
+      <app-unread-counter [count]="store.unreadCount()" />
+    </div>
+    <div class="notification-center-page__header-actions">
+      <button type="button" mat-stroked-button (click)="markAllRead()" [disabled]="store.unreadCount() === 0">
+        <mat-icon>done_all</mat-icon>
+        Mark all read
+      </button>
+      <button type="button" mat-stroked-button routerLink="/notifications/settings">
+        <mat-icon>tune</mat-icon>
+        Preferences
+      </button>
+    </div>
+  </header>
+
+  <app-notification-filter (filterChanged)="onFilterChanged($event)" (cleared)="onFilterCleared()" />
+
+  @if (store.error()) {
+    <p class="notification-center-page__error">{{ store.error() }}</p>
+  }
+
+  <app-notification-timeline
+    [notifications]="store.notifications()"
+    [loading]="store.loading()"
+    (read)="onRead($event)"
+    (dismissed)="onDismiss($event)"
+    (removed)="onRemove($event)"
+  />
+</section>

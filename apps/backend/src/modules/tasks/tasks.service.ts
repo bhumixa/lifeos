@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import type { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import {
@@ -6,6 +7,7 @@ import {
   TaskStatus,
   type Task,
 } from '../../../generated/prisma/index.js';
+import { NOTIFICATION_EVENTS, TaskCompletedEvent } from '../../events/index.js';
 import type { CreateTaskDto } from './dto/create-task.dto.js';
 import type { QueryTasksDto } from './dto/query-tasks.dto.js';
 import type { UpdateTaskDto } from './dto/update-task.dto.js';
@@ -17,10 +19,18 @@ import type { UpdateTaskDto } from './dto/update-task.dto.js';
  * (findFirst with both id and userId, not findUnique(id) followed by an owner check) so that a
  * task belonging to another user is indistinguishable from a task that doesn't exist — a 404,
  * not a 403, which avoids confirming other users' task IDs exist.
+ *
+ * `complete` additionally emits a TaskCompletedEvent (Milestone 12) via the globally-registered
+ * EventEmitter2 — a small, additive side effect (this method's own return value/behavior is
+ * unchanged) that lets modules/notifications react without TasksService knowing Notifications
+ * exists at all, per docs/05-architecture.md's Milestone 12 note.
  */
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(
     userId: string,
@@ -137,11 +147,16 @@ export class TasksService {
   }
 
   async complete(userId: string, id: string): Promise<Task> {
-    await this.findOne(userId, id);
-    return this.prisma.task.update({
+    const existing = await this.findOne(userId, id);
+    const task = await this.prisma.task.update({
       where: { id },
       data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
     });
+    this.eventEmitter.emit(
+      NOTIFICATION_EVENTS.TASK_COMPLETED,
+      new TaskCompletedEvent(userId, task.id, existing.title),
+    );
+    return task;
   }
 
   /** Lifetime completed-task count for this user, excluding soft-deleted tasks (same

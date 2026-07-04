@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import {
   PlannerBlockType,
@@ -10,6 +11,10 @@ import {
   type PlannerBlock,
   type PlannerDay,
 } from '../../../generated/prisma/index.js';
+import {
+  NOTIFICATION_EVENTS,
+  PlannerBlockCompletedEvent,
+} from '../../events/index.js';
 import { TasksService } from '../tasks/tasks.service.js';
 import { RoutinesService } from '../routines/routines.service.js';
 import { HabitsService } from '../habits/habits.service.js';
@@ -90,6 +95,7 @@ export class PlannerService {
     private readonly tasksService: TasksService,
     private readonly routinesService: RoutinesService,
     private readonly habitsService: HabitsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async today(userId: string): Promise<PlannerDayResponseDto> {
@@ -217,16 +223,26 @@ export class PlannerService {
   /** Toggles a block's own `completed` flag — nothing else. Per the milestone's business rule
    * ("Planner should never modify Tasks or Habits automatically"), this never writes to the Task
    * or Habit a TASK/HABIT block references; a user who wants that underlying Task/Habit marked
-   * done does so from that feature directly. */
+   * done does so from that feature directly. Emits a PlannerBlockCompletedEvent (Milestone 12)
+   * only on the true-going transition (`completed: true`), never on un-completing — the same
+   * "react to becoming done, not to every toggle" rule TaskCompletedEvent/HabitCompletedEvent's
+   * own call sites already follow. */
   async complete(
     userId: string,
     dto: CompletePlannerBlockDto,
   ): Promise<PlannerDayResponseDto> {
     const block = await this.findBlockOrThrow(userId, dto.blockId);
+    const completed = dto.completed ?? true;
     await this.prisma.plannerBlock.update({
       where: { id: dto.blockId },
-      data: { completed: dto.completed ?? true },
+      data: { completed },
     });
+    if (completed) {
+      this.eventEmitter.emit(
+        NOTIFICATION_EVENTS.PLANNER_BLOCK_COMPLETED,
+        new PlannerBlockCompletedEvent(userId, block.id, block.title),
+      );
+    }
     return this.getByDate(
       block.plannerDay.userId,
       formatDateOnly(block.plannerDay.date),

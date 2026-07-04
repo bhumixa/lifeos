@@ -228,6 +228,51 @@ can be structured once those modules are built: one small interface, a registry 
 and adapters that are safe to call even when unimplemented (`RemoteCalendarProvider.sync` always
 returns a documented `FAILED` result, never a thrown exception or a silent no-op).
 
+**Milestone 12 (Notification Engine) is the second of these three providers to actually exist in
+code, and the first module to genuinely need `EventEmitter2`.** `INotificationChannel`
+(`InAppChannel` real; `EmailChannel`/`PushChannel`/`SmsChannel`/`DesktopChannel` all extending a
+shared `PlaceholderNotificationChannel` base, resolved through `NotificationChannelRegistry`)
+follows Calendar's own provider template exactly — see `modules/notifications/channels/` and
+`docs/API.md`'s Notifications section for the full shape. `AiProvider` remains the one provider of
+the original three still unbuilt.
+
+**`EventEmitter2` is finally installed and globally registered** (`EventEmitterModule.forRoot()` in
+`AppModule`) — every milestone since Planner (Milestone 7) named "a write elsewhere triggering a
+reaction" as the natural first use case, then chose a pull-based read-time computation (Streaks'
+`AchievementsService.evaluateAndUnlock`, Goals' explicit `/progress` refresh) or a raw-Prisma-read
+composition (Journal, Calendar) instead, specifically to avoid modifying already-shipped modules for
+a foundation milestone that didn't strictly need push-based events to satisfy its own required
+endpoints. A Notification Engine is the first milestone whose *entire reason to exist* is reacting
+to what other modules do — an event bus with nothing wired to emit into it would be architecture
+without substance, so this is the one milestone where "modify existing modules" is the correct,
+minimal-diff call rather than the one every predecessor correctly declined. The diff to each
+existing service is deliberately the smallest possible: one new constructor parameter
+(`EventEmitter2`), one `this.eventEmitter.emit(...)` call at the exact point the milestone brief's
+own named event already occurs, no change to any existing method's return value or behavior.
+`TasksService.complete`, `HabitsService.createLog`, `PlannerService.complete` (guarded to the
+true-going `completed` transition), `GoalsService.update` (guarded to the explicit transition into
+`GoalStatus.COMPLETED`), `JournalService.create`, and `AchievementsService.evaluateAndUnlock` (once
+per newly-unlocked achievement) each gained exactly one such emission — see `docs/changelog.md`'s
+Milestone 12 entry for the full list and why each call site was chosen. `CalendarEventStartingEvent`
+is the one named event that stays unemitted: "an event is starting soon" is a time-based condition,
+not a reaction to a write, so it has no natural call site — `NotificationSchedulerService
+.scanUpcomingCalendarEvents` is a real, unit-tested method that would emit it on a periodic scan,
+but nothing calls that method automatically yet (see the note on background processing below).
+
+**Notifications are created exclusively by `NotificationSchedulerService`'s `@OnEvent` handlers,
+never by a controller** — there is no `POST /notifications` endpoint, per this milestone's own "do
+not deliver notifications immediately inside controllers" rule. Each handler: skips entirely if
+`NotificationPreferencesService.isCategoryEnabled` says the user has that event's category disabled
+(no row is created at all, not merely suppressed after the fact); computes `scheduledFor` via
+`utils/quiet-hours.util.ts` (timezone-aware, reusing `planner/utils/timezone.util.ts`'s zoned-time
+helpers directly, plus one additive export `getZonedTimeOfDay` for minute-precision comparisons);
+then creates the `Notification` row and immediately enqueues it (`NotificationQueueService.enqueue`)
+rather than delivering synchronously. `NotificationQueueService.processDue` — implemented and
+unit-tested, draining due rows via `NotificationDispatcherService` with exponential backoff on
+failure — is never invoked automatically in this milestone, the same "documented, tested,
+not-yet-scheduled seam" shape Calendar's own `recurrence.util.ts` already established; see the note
+on background processing immediately below for where it belongs once one exists.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:
@@ -241,6 +286,17 @@ A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed 
 | `email` | password reset, digests | transactional email send |
 
 **Per-user local midnight** matters: a single global cron at UTC midnight will incorrectly roll over streaks for non-UTC users. The worker should schedule/evaluate rollover per user timezone (stored on `User`), not as one global job.
+
+**As implemented (Milestone 12):** `main.worker.ts` and BullMQ/Redis-backed queues are still
+unbuilt — no queue package is installed anywhere in this codebase yet. The `notifications` queue's
+future job bodies already exist as plain, directly-callable, unit-tested methods rather than
+speculative infrastructure: `NotificationQueueService.processDue` (drain due `NotificationQueue`
+rows and dispatch each) and `NotificationSchedulerService.scanUpcomingCalendarEvents` (scan
+`CalendarEvent` for ones starting soon and emit `CalendarEventStartingEvent` for each) are exactly
+the two job bodies a future `notifications` BullMQ processor would call on an interval — see
+`docs/API.md`'s Notifications section. Wiring an actual `@nestjs/schedule`/BullMQ cron trigger
+around them is deliberately left to the milestone that introduces real background processing,
+rather than bolted on speculatively here.
 
 ## Real-time updates (optional, MVP-light)
 

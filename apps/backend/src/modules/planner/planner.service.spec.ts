@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import {
@@ -131,6 +132,7 @@ describe('PlannerService', () => {
         { provide: TasksService, useValue: tasksService },
         { provide: RoutinesService, useValue: routinesService },
         { provide: HabitsService, useValue: habitsService },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

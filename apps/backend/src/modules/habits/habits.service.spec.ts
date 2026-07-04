@@ -1,4 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import {
@@ -90,7 +91,11 @@ describe('HabitsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [HabitsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        HabitsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get(HabitsService);

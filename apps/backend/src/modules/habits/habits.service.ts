@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import type { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import {
@@ -11,6 +12,11 @@ import {
   type Habit,
   type HabitLog,
 } from '../../../generated/prisma/index.js';
+import {
+  HabitCompletedEvent,
+  NOTIFICATION_EVENTS,
+} from '../../events/index.js';
+import { formatDateOnly } from '../planner/utils/timezone.util.js';
 import type { CreateHabitDto } from './dto/create-habit.dto.js';
 import type { CreateHabitLogDto } from './dto/create-habit-log.dto.js';
 import type {
@@ -35,10 +41,17 @@ interface PeriodWindow {
  * `userId`, and a habit that exists but belongs to someone else is a 404, not a 403. HabitLog
  * rows have no owner column of their own — they're only ever reached through their parent
  * Habit, the same design RoutineStep uses for Routine.
+ *
+ * `createLog` additionally emits a HabitCompletedEvent (Milestone 12) via the globally-registered
+ * EventEmitter2 — the same small, additive, behavior-preserving side effect TasksService.complete
+ * gained for the same reason (see its class doc).
  */
 @Injectable()
 export class HabitsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(
     userId: string,
@@ -151,7 +164,7 @@ export class HabitsService {
     habitId: string,
     dto: CreateHabitLogDto,
   ): Promise<HabitLogResponseDto> {
-    await this.findHabitOrThrow(userId, habitId);
+    const habit = await this.findHabitOrThrow(userId, habitId);
     const date = this.toDateOnly(dto.date);
 
     const existing = await this.prisma.habitLog.findUnique({
@@ -171,6 +184,15 @@ export class HabitsService {
         notes: dto.notes,
       },
     });
+    this.eventEmitter.emit(
+      NOTIFICATION_EVENTS.HABIT_COMPLETED,
+      new HabitCompletedEvent(
+        userId,
+        habitId,
+        habit.name,
+        formatDateOnly(date),
+      ),
+    );
     return this.toLogResponse(log);
   }
 

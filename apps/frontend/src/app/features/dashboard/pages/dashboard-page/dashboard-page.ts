@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import type { PlannerDay } from '@lifeos/shared-types';
+import type { Notification, PlannerDay } from '@lifeos/shared-types';
 import { interval, map, startWith } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
@@ -17,6 +17,7 @@ import { DashboardCalendarService, type DashboardScheduleItem } from '../../serv
 import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
 import { DashboardJournalService } from '../../services/dashboard-journal.service';
+import { DashboardNotificationsService } from '../../services/dashboard-notifications.service';
 import { DashboardPlannerService } from '../../services/dashboard-planner.service';
 import { DashboardStreaksService } from '../../services/dashboard-streaks.service';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
@@ -51,6 +52,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardGoals = inject(DashboardGoalsService);
   private readonly dashboardJournal = inject(DashboardJournalService);
   private readonly dashboardCalendar = inject(DashboardCalendarService);
+  private readonly dashboardNotifications = inject(DashboardNotificationsService);
 
   protected readonly user = this.authService.user;
 
@@ -109,6 +111,14 @@ export class DashboardPage implements OnInit {
   ]);
   protected readonly calendarScheduleLoading = signal(true);
   protected readonly calendarSchedule = signal<DashboardScheduleItem[]>([]);
+
+  protected readonly notificationsStatsLoading = signal(true);
+  protected readonly notificationsStats = signal<DashboardStat[]>([
+    { label: 'Unread Notifications', value: '—', icon: 'mark_email_unread' },
+    { label: 'Upcoming Reminders', value: '—', icon: 'upcoming' },
+  ]);
+  protected readonly recentActivityLoading = signal(true);
+  protected readonly recentNotifications = signal<Notification[]>([]);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
@@ -261,6 +271,22 @@ export class DashboardPage implements OnInit {
       error: () => {
         this.calendarStatsLoading.set(false);
         this.calendarScheduleLoading.set(false);
+      },
+    });
+
+    this.dashboardNotifications.load().subscribe({
+      next: (summary) => {
+        this.notificationsStats.set([
+          { label: 'Unread Notifications', value: String(summary.unreadCount), icon: 'mark_email_unread' },
+          { label: 'Upcoming Reminders', value: String(summary.upcomingCount), icon: 'upcoming' },
+        ]);
+        this.notificationsStatsLoading.set(false);
+        this.recentNotifications.set(summary.recent);
+        this.recentActivityLoading.set(false);
+      },
+      error: () => {
+        this.notificationsStatsLoading.set(false);
+        this.recentActivityLoading.set(false);
       },
     });
   }

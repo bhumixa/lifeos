@@ -3,9 +3,6 @@
     <mat-card-title>Recent Activity</mat-card-title>
   </mat-card-header>
   <mat-card-content>
-    <div class="recent-activity__empty">
-      <mat-icon>history</mat-icon>
-      <p>No recent activity yet. Once you start creating tasks and habits, they'll show up here.</p>
-    </div>
+    <app-notification-list [notifications]="notifications()" [loading]="loading()" [compact]="true" />
   </mat-card-content>
 </mat-card>

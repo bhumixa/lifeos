@@ -8,6 +8,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/auth/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { NotificationBell } from '../../features/notifications/components/notification-bell/notification-bell';
 import { Breadcrumb } from '../../shared/components/breadcrumb/breadcrumb';
 
 @Component({
@@ -21,6 +22,7 @@ import { Breadcrumb } from '../../shared/components/breadcrumb/breadcrumb';
     MatToolbarModule,
     MatTooltipModule,
     Breadcrumb,
+    NotificationBell,
   ],
   templateUrl: './navbar.html',
   styleUrl: './navbar.scss',

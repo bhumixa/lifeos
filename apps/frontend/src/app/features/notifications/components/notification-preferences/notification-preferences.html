@@ -1,0 +1,63 @@
+<form class="notification-preferences" [formGroup]="form" (ngSubmit)="submit()">
+  <section class="notification-preferences__section">
+    <h3>Quiet hours</h3>
+    <p class="notification-preferences__hint">Notifications created during this window are held until it ends. Leave both blank to disable.</p>
+    <div class="notification-preferences__row">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Starts</mat-label>
+        <input matInput type="time" formControlName="quietHoursStart" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Ends</mat-label>
+        <input matInput type="time" formControlName="quietHoursEnd" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Timezone</mat-label>
+        <input matInput formControlName="timezone" placeholder="e.g. America/New_York" />
+      </mat-form-field>
+    </div>
+  </section>
+
+  <mat-divider />
+
+  <section class="notification-preferences__section">
+    <h3>Categories</h3>
+    <div class="notification-preferences__toggles">
+      @for (toggle of categoryToggles; track toggle.key) {
+        <mat-slide-toggle [formControlName]="toggle.key">{{ toggle.label }}</mat-slide-toggle>
+      }
+    </div>
+  </section>
+
+  <mat-divider />
+
+  <section class="notification-preferences__section">
+    <h3>Delivery channels</h3>
+    <div class="notification-preferences__toggles">
+      <mat-slide-toggle formControlName="enableInApp">In-app</mat-slide-toggle>
+      <mat-slide-toggle formControlName="enableEmail">Email</mat-slide-toggle>
+      <mat-slide-toggle formControlName="enablePush">Push</mat-slide-toggle>
+    </div>
+    <p class="notification-preferences__hint">Email and Push are architected but not yet delivered by a real provider — see the Notification Engine's remaining work.</p>
+  </section>
+
+  @if (errorMessage()) {
+    <p class="notification-preferences__error">{{ errorMessage() }}</p>
+  }
+
+  <div class="notification-preferences__actions">
+    @if (saved() && !isSaving()) {
+      <span class="notification-preferences__saved">
+        <mat-icon>check_circle</mat-icon>
+        Saved
+      </span>
+    }
+    <button type="submit" mat-flat-button [disabled]="isSaving()">
+      @if (isSaving()) {
+        <mat-progress-spinner diameter="18" mode="indeterminate" />
+      } @else {
+        Save preferences
+      }
+    </button>
+  </div>
+</form>

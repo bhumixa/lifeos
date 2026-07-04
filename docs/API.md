@@ -251,12 +251,70 @@ recurrence.util.ts`'s `prepareRecurringInstances` is the documented, tested (inc
 2026 US DST transitions) seam a future recurrence milestone builds on; nothing calls it
 automatically today.
 
+## Notifications (Milestone 12)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/notifications` | Paginated list — filter by `status`/`type`/`priority`, sort by `createdAt`/`scheduledFor`/`priority`. |
+| GET | `/notifications/unread` | Every notification with `readAt: null` and `status` not `DISMISSED`, newest-`scheduledFor`-first. Powers the Navbar's NotificationBell and its unread badge count. |
+| GET | `/notifications/preferences` | The requesting user's `NotificationPreference`, auto-created with defaults on first access. |
+| PATCH | `/notifications/preferences` | Update quiet hours (`quietHoursStart`/`quietHoursEnd`, "HH:mm" or `null` to disable), `timezone`, and the per-category/per-channel enable flags. |
+| POST | `/notifications/read/:id` | Marks one notification `READ` and stamps `readAt`. |
+| POST | `/notifications/read-all` | Marks every unread, non-dismissed notification `READ` in one call. Returns `{ updatedCount }`. |
+| POST | `/notifications/dismiss/:id` | Marks one notification `DISMISSED` — hidden from unread lists/counts without deleting it. |
+| DELETE | `/notifications/:id` | Hard-deletes a notification. |
+
+**There is no `POST /notifications`.** Notifications are created exclusively by
+`NotificationSchedulerService` reacting to a domain event (see the note below) — never by a
+controller accepting a client-authored notification, per this milestone's "do not deliver
+notifications immediately inside controllers" business rule.
+
+**Event-driven creation.** `TasksService.complete`, `HabitsService.createLog`,
+`PlannerService.complete` (only on the true-going transition), `GoalsService.update` (only on the
+explicit transition into `COMPLETED`), `JournalService.create`, and
+`AchievementsService.evaluateAndUnlock` (once per newly-unlocked achievement) each emit a small,
+additive domain event (`TaskCompletedEvent`, `HabitCompletedEvent`, `PlannerBlockCompletedEvent`,
+`GoalCompletedEvent`, `JournalCreatedEvent`, `AchievementUnlockedEvent` — see `apps/backend/src/events/`)
+via the globally-registered `EventEmitter2` (`@nestjs/event-emitter`, wired in `AppModule`).
+`NotificationSchedulerService` subscribes to all six via `@OnEvent`, and for each: skips entirely if
+the user has that event's `NotificationType` category disabled; otherwise computes `scheduledFor`
+(pushed past the end of the user's configured quiet hours if the current moment falls inside that
+window, timezone-aware); then creates the `Notification` row and enqueues it. A seventh event,
+`CalendarEventStartingEvent`, and its listener both exist and are unit-tested, but nothing emits it
+yet — see `docs/05-architecture.md`'s Milestone 12 note for why "an event is starting soon" needs a
+periodic scan rather than a write to react to, and the documented, callable-but-unscheduled seam
+(`NotificationSchedulerService.scanUpcomingCalendarEvents`) standing in for that future worker.
+
+**Queueing and retries.** Every created `Notification` is immediately enqueued
+(`NotificationQueueService.enqueue`) as a `NotificationQueue` row, not delivered synchronously.
+`NotificationQueueService.processDue` — implemented and unit-tested, but not invoked automatically
+by anything in this milestone (the same "documented seam, no scheduler installed yet" shape
+Calendar's own `recurrence.util.ts` already established) — drains due rows, dispatches each via
+`NotificationDispatcherService`, and on failure increments `attempts` with exponential backoff
+(`utils/retry-backoff.util.ts`, capped at 60 minutes) up to `MAX_DELIVERY_ATTEMPTS` (5, a documented
+placeholder) before marking both rows terminally `FAILED`.
+
+**Channel architecture.** `INotificationChannel` (one method, `send`) is the seam every delivery
+mechanism implements — the same interface-plus-adapter shape Calendar's `ICalendarProvider`
+established first. `InAppChannel` is the only one that does anything real (a `Notification` row
+already *is* the in-app representation, so it always succeeds immediately); `EmailChannel`/
+`PushChannel`/`SmsChannel`/`DesktopChannel` all extend `PlaceholderNotificationChannel`, which always
+returns an explicit `NOT_IMPLEMENTED` result, never a thrown exception or a silent no-op.
+`NotificationDispatcherService.resolveChannels` always attempts `IN_APP`, plus `EMAIL`/`PUSH` only
+when the user's own `enableEmail`/`enablePush` preference is on — `SMS`/`DESKTOP` have no
+corresponding preference flag yet (per this milestone's literal field list), so nothing routes to
+them automatically, though both adapters exist in `NotificationChannelRegistry` as a ready seam.
+
 ## Not yet implemented
 
-Notifications, AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone
-sequencing. XP/achievements are the beginning of "Gamification," per that roadmap's Phase 3, but a
-level system, badges beyond the fixed `Achievement` catalog, and daily/weekly Challenges remain
-unbuilt (see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is exported by
+AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
+XP/achievements are the beginning of "Gamification," per that roadmap's Phase 3, but a level
+system, badges beyond the fixed `Achievement` catalog, and daily/weekly Challenges remain unbuilt
+(see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is exported by
 `JournalModule` specifically so a future AI Coach module can reuse it as a read source for coaching
 context — no AI code exists yet. Calendar's own OAuth/external API integration (Google/Microsoft/
-Apple/iCal) remains unbuilt — see the Calendar section above.
+Apple/iCal) remains unbuilt — see the Calendar section above. Notifications (Milestone 12) is
+architecturally complete but has no real email/push/SMS/desktop provider behind it, and no
+background worker process yet drains `NotificationQueueService.processDue` or calls
+`NotificationSchedulerService.scanUpcomingCalendarEvents` on a schedule — see the Notifications
+section above.

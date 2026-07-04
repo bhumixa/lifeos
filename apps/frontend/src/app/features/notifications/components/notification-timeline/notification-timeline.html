@@ -1,0 +1,23 @@
+@if (loading()) {
+  <div class="notification-timeline">
+    @for (i of [0, 1, 2]; track i) {
+      <app-skeleton height="64px" />
+    }
+  </div>
+} @else if (groups().length === 0) {
+  <app-empty-state icon="notifications_none" title="No notifications" message="You're all caught up." />
+} @else {
+  <div class="notification-timeline">
+    @for (group of groups(); track group.label) {
+      <section class="notification-timeline__group">
+        <h3 class="notification-timeline__label">{{ group.label }}</h3>
+        <app-notification-list
+          [notifications]="group.notifications"
+          (read)="read.emit($event)"
+          (dismissed)="dismissed.emit($event)"
+          (removed)="removed.emit($event)"
+        />
+      </section>
+    }
+  </div>
+}

@@ -74,6 +74,8 @@ src/
 - **Milestone 10 (Journal)** reused the `Journal` nav item already in Milestone 3's original list (like Habits before it — no nav change needed, just swapping its placeholder for `loadChildren`). `features/journal/` follows the per-feature convention below with six pages (Journal Dashboard at `''`, Morning Journal at `morning`, Evening Journal at `evening`, Journal History at `history`, Search Journals at `search`, Journal Detail at `:date/:id` — addressed by date+id rather than a plain `:id`, since `GET /journal/:date` already returns the whole day's entries the same way `PlannerDayResponseDto` does for its own day) and twelve components (`mood-selector`, `energy-meter`, `journal-card`, `journal-timeline`, `reflection-questions`, `gratitude-widget`, `tags-input`, `search-filters`, `journal-calendar`, `statistics-card`, `prompt-card`, `rich-text-editor`). `rich-text-editor` is a hand-rolled markdown-lite textarea (bold/italic/list toolbar + a sanitized-preview toggle), not a third-party editor — no rich-text dependency (ngx-quill/CKEditor) exists anywhere in this codebase, and CLAUDE.md weighs against adding one without justification. `journal-calendar` is a hand-rolled month grid, matching the "no charting library" convention Goals' own `goal-timeline` already established. No dedicated "Attachment" component exists — the milestone's own component list doesn't include one, and `POST /journal/attachments` registers already-hosted file metadata rather than accepting an upload, so there's no upload UI to build. `features/journal/utils/journal-form.ts` factors the seven fields every `JournalType` shares (title/content/mood/energy/tags/weather/location/goalId) into one `commonEntryControls(fb)` helper, so Morning/Evening/Journal Detail's own reactive forms each add only their type-specific fields rather than repeating those seven three times. The main Dashboard (`features/dashboard/`) gained `services/dashboard-journal.service.ts`, deriving all six required widgets (Today's Journal Status, Morning/Evening Reflection, Current Mood, Last Gratitude, Latest Reflection) from `GET /journal/:date` (today) plus one `GET /journal/history` call (most recent entry overall) — the same "derived via local computation, no dedicated backend endpoint" shape `DashboardGoalsService` already established. Cross-feature integration is frontend-only composition, not a backend module import: Goal Detail imports `JournalTimeline`/`JournalApiService` directly to show related entries (`GET /journal/search?goalId=`), the Planner Dashboard gained a plain link to `/journal`, and the Evening Journal page composes Habits'/Streaks' own `HabitApiService.summary()`/`StreaksApiService.today()` alongside its own Journal calls — see `docs/05-architecture.md`'s Milestone 10 note for why this differs from every prior fan-in module's backend-level service reuse.
 - **Milestone 11 (Calendar)** added a new nav item (`Calendar`, like Streaks/Goals before it — no pre-existing placeholder pointed at `/calendar`). `features/calendar/` follows the per-feature convention below with five pages (Calendar Dashboard at `''`, Month View at `month`, Week View at `week`, Day View at `day`/`day/:date`, Calendar Settings at `settings`) and nine components (`calendar-grid`, `event-card`, `mini-calendar`, `agenda-view`, `calendar-filters`, `event-dialog`, `timezone-selector`, `calendar-legend`, `drag-drop-event`). `mini-calendar` and `calendar-grid` are hand-rolled month grids following `journal-calendar`'s own precedent exactly (this codebase's "no charting/calendar library" convention), not a copy of it — `journal-calendar` lives inside `features/journal/components/` and isn't imported across the feature boundary, matching the isolation rule this section states below. `drag-drop-event` is likewise Calendar's own CDK drag-to-move component, not an import of Planner's `planner-block` — cross-feature reuse on the frontend happens by composing a sibling feature's exported *service*, not reaching into its `components/` folder (see the note below on `state/`/`services/`). Month View is click-to-open (create/edit); Week View is a read-mostly 7-day overview whose day cells link into Day View; Day View is the one with drag-and-drop — the same complexity split Planner itself draws between its own read-mostly Week View and richer, drag-enabled Day View (Week's 7 columns are too narrow for meaningful drag placement). `event-dialog`'s "Advanced links" panel exposes `taskId`/`goalId`/`plannerBlockId` as plain id fields rather than full cross-feature search-selects, mirroring `block-dialog`'s own precedent of only building a real picker where a milestone brief specifically calls for one. The main Dashboard (`features/dashboard/`) gained `services/dashboard-calendar.service.ts` and `components/calendar-schedule-card/`, deriving Today's Events/Upcoming Events/Calendar Overview from `GET /calendar`/`GET /calendar/events` and Today's Schedule by merging those with `GET /planner/today` (reused directly via `PlannerApiService`, per this milestone's own "reuse existing Planner APIs where practical" instruction) — the same "one/two endpoint(s), several derived widgets" shape every prior Dashboard service already establishes.
 
+- **Milestone 12 (Notifications)** added a new nav item (`Notifications`, like Streaks/Goals/Calendar before it — no pre-existing placeholder pointed at `/notifications`). `features/notifications/` follows the per-feature convention below with two pages (Notification Center at `''`, Notification Settings at `settings`) and eight components (`notification-bell`, `notification-badge`, `notification-list`, `notification-card`, `notification-filter`, `notification-preferences`, `notification-timeline`, `unread-counter`). Unlike every prior feature store (`GoalsStore`, list-page-scoped), `NotificationsStore` is `providedIn: 'root'` — see its class doc for why: the Navbar's `NotificationBell` and the Notification Center page both need live unread state at once, so a mark-read/dismiss from either place must reflect in the other. `notification-bell` is the first component a *feature* exports specifically for the app shell (`layout/navbar/navbar.ts`) to import directly, replacing Navbar's static "No notifications yet." placeholder menu — the same "layout composes a sibling feature's exported component" reasoning `DashboardCalendarService` already established for cross-feature service composition, just applied to the shell instead of another feature page. `notification-timeline` groups Today/Yesterday/Earlier, a hand-rolled grouped list (no charting/timeline library) following `journal-calendar`'s/`goal-timeline`'s own precedent exactly; `notification-list` is the shared rendering primitive both `notification-timeline`'s per-group sections and the Dashboard's `recent-activity` (via its `compact` input) compose, rather than two separate list implementations. The main Dashboard (`features/dashboard/`) gained `services/dashboard-notifications.service.ts` (Unread Notifications, Upcoming Reminders, and the data feeding `recent-activity`, derived from `GET /notifications/unread` plus two `GET /notifications` list calls — the same "one/two endpoint(s), several derived widgets" shape every prior Dashboard service already establishes) and its `recent-activity` component, previously a pure empty-state placeholder since Milestone 3, is real for the first time — every other module's completions already flow into a Notification, so the most recent few *are* recent activity app-wide with no new dashboard-specific endpoint.
+
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
 habits/
@@ -191,6 +193,19 @@ the first module to import three sibling modules' services (`TasksModule`/`Routi
 were speculative infrastructure for BullMQ-based background processing, which Milestone 7's
 generator doesn't need (it's a synchronous request/response operation, not a queued job).
 
+**`src/events/` was finally built in Milestone 12** (Notification Engine) — one small class per
+domain event (`TaskCompletedEvent`, `HabitCompletedEvent`, `PlannerBlockCompletedEvent`,
+`GoalCompletedEvent`, `JournalCreatedEvent`, `AchievementUnlockedEvent`,
+`CalendarEventStartingEvent`) plus `notification-event-names.ts` (the `NOTIFICATION_EVENTS` string
+constants `.emit()`/`@OnEvent()` both key off, so a typo in either the emitting service or
+`NotificationSchedulerService`'s listener is a compile error, not a silently-never-fired handler)
+and a barrel `index.ts`. `jobs/` remains unbuilt — no BullMQ/queue package is installed anywhere in
+this codebase yet (see `docs/05-architecture.md`'s Background Processing section); the two job
+bodies a future `notifications` queue processor would call already exist as plain, directly
+callable, unit-tested methods (`NotificationQueueService.processDue`,
+`NotificationSchedulerService.scanUpcomingCalendarEvents`) rather than a `jobs/` folder with nothing
+to schedule them yet.
+
 **As implemented (Milestone 8 — `modules/streaks/`):** one module, three controllers
 (`StreaksController` at `/streaks`, `AchievementsController` at `/achievements`,
 `FreezeDaysController` at `/freeze-days`) and three services (`StreaksService`,
@@ -262,6 +277,34 @@ Streaks/Journal already set for that file) rather than a second timezone impleme
 its four optional cross-links (`plannerBlockId`/`taskId`/`goalId`/`journalEntryId`) are validated
 via the same raw-Prisma-existence-check pattern every other module's optional cross-reference
 already uses, not injected `TasksService`/`GoalsService`/`PlannerService`/`JournalService`.
+
+**As implemented (Milestone 12 — `modules/notifications/`):** one module, one controller
+(`NotificationsController`), and six services — `NotificationsService` (core CRUD/list/unread/
+read/dismiss), `NotificationPreferencesService` (per-user 1:1 settings, find-or-create),
+`NotificationSchedulerService` (the `@OnEvent` listeners that turn a domain event into a
+Notification — see `docs/05-architecture.md`'s Milestone 12 note), `NotificationDispatcherService`
+(resolves+calls channels for one Notification), `NotificationQueueService` (retry-attempt ledger and
+the not-yet-scheduled `processDue` seam), and `NotificationTemplateService` (event -> `{title,
+message, priority}`) — split this many ways because each is independently unit-testable without
+mocking the others (e.g. quiet-hours math never needs a channel mock, channel routing never needs
+Prisma). A `channels/` subdirectory holds the provider-adapter architecture, mirroring
+`modules/calendar/providers/` exactly: `notification-channel.interface.ts` (`INotificationChannel`),
+`in-app.channel.ts` (the only one that does anything real), `placeholder-notification.channel.ts`
+(an abstract base every non-IN_APP adapter extends, so `email.channel.ts`/`push.channel.ts`/
+`sms.channel.ts`/`desktop.channel.ts` each add only a display name), and
+`notification-channel.registry.ts` (maps a channel type to its adapter instance). A `utils/`
+(same "framework-free, unit-testable" idea Planner's/Streaks' own `utils/` already establish) holds
+`quiet-hours.util.ts` (reusing `planner/utils/timezone.util.ts` directly, plus one additive export,
+`getZonedTimeOfDay`, for minute-precision "HH:mm" comparisons the existing `getZonedHour` alone
+couldn't support) and `retry-backoff.util.ts` (exponential backoff math). `NotificationsModule`
+**imports no sibling module** — `NotificationSchedulerService` reacts to events emitted by Tasks/
+Habits/Planner/Goals/Journal/Streaks via the globally-registered `EventEmitter2` rather than
+injecting any of their services, and its one raw cross-feature read
+(`scanUpcomingCalendarEvents`) queries `CalendarEvent` directly via `PrismaService`, the same "raw
+read, not a whole sibling module, for one query" reasoning every optional-cross-link check already
+uses. `NotificationsService`/`NotificationSchedulerService`/`NotificationQueueService` are exported
+so a future `main.worker.ts` background process (or an AI Coach module wanting to surface a
+notification) can reuse them directly.
 
 ## Root-level config
 

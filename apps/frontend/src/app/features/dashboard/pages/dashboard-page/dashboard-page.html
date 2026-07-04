@@ -68,6 +68,15 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
+    @if (notificationsStatsLoading()) {
+      @for (i of [0, 1]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of notificationsStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
   </div>
 
   <div class="dashboard__panels">
@@ -76,6 +85,6 @@
     <app-calendar-schedule-card [items]="calendarSchedule()" [loading]="calendarScheduleLoading()" />
     <app-routine-summary />
     <app-habits-quick-complete />
-    <app-recent-activity />
+    <app-recent-activity [notifications]="recentNotifications()" [loading]="recentActivityLoading()" />
   </div>
 </section>

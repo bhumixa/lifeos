@@ -50,6 +50,19 @@
 // event (SetNull) rather than deleting the user's calendar history. CalendarSync is an
 // append-only per-sync-attempt log, not a single "last known state" row, so a calendar's sync
 // history is itself inspectable — see the comment on CalendarSync.
+// Milestone 12 (Notification Engine) adds Notification/NotificationPreference/NotificationQueue.
+// This is the first milestone to introduce EventEmitter2 as a real, wired dependency (see
+// docs/05-architecture.md's Milestone 12 note) — Notification rows are created by
+// modules/notifications' NotificationSchedulerService reacting to domain events (TaskCompleted,
+// HabitCompleted, PlannerBlockCompleted, GoalCompleted, JournalCreated, AchievementUnlocked)
+// emitted by small, additive changes to TasksService/HabitsService/PlannerService/GoalsService/
+// JournalService/AchievementsService, not by those modules calling NotificationsService directly.
+// NotificationPreference is a per-user (1:1) settings row, auto-created with defaults on first
+// access — the same "find-or-create on first read" convention PlannerDay/HabitLog already use for
+// their own per-user rows. NotificationQueue is a 1:1 delivery-attempt ledger for one Notification
+// (attempts/nextAttempt/lastError/status), the seam a future BullMQ worker process would drain —
+// see the comment on NotificationQueue for why, unlike CalendarSync's append-only log, this one
+// row is mutated in place across retries.
 
 generator client {
   provider = "prisma-client-js"
@@ -89,16 +102,18 @@ model User {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  refreshTokens    RefreshToken[]
-  tasks            Task[]
-  routines         Routine[]
-  habits           Habit[]
-  plannerDays      PlannerDay[]
-  userAchievements UserAchievement[]
-  freezeDays       FreezeDay[]
-  goals            Goal[]
-  journalEntries   JournalEntry[]
-  calendars        Calendar[]
+  refreshTokens          RefreshToken[]
+  tasks                  Task[]
+  routines               Routine[]
+  habits                 Habit[]
+  plannerDays            PlannerDay[]
+  userAchievements       UserAchievement[]
+  freezeDays             FreezeDay[]
+  goals                  Goal[]
+  journalEntries         JournalEntry[]
+  calendars              Calendar[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 
   @@map("users")
 }
@@ -940,4 +955,154 @@ model CalendarSync {
 
   @@index([calendarId, createdAt])
   @@map("calendar_syncs")
+}
+
+// Which domain produced a Notification — one value per event source the milestone brief names
+// (Tasks/Habits/Planner/Goals/Journal/Calendar/Streaks/Achievements), plus SYSTEM for anything
+// that isn't a reaction to one specific feature's domain event (e.g. a future account-level
+// notice). Achievements gets its own value distinct from STREAK — an unlocked achievement and a
+// streak-consistency nudge read very differently to a user even though both originate from
+// modules/streaks.
+enum NotificationType {
+  TASK
+  HABIT
+  PLANNER
+  GOAL
+  JOURNAL
+  CALENDAR
+  STREAK
+  ACHIEVEMENT
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+// A single field carries both "has this been delivered yet" and "what did the user do with it
+// after delivery" — PENDING/QUEUED/SENT/FAILED are the delivery lifecycle, READ/DISMISSED are
+// user-driven terminal states reached only from SENT. This matches the milestone brief's own
+// literal enum exactly rather than splitting into two enums/columns; NotificationService is what
+// enforces the lifecycle ordering (see its class doc).
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  READ
+  DISMISSED
+}
+
+// A user's own delivered/read/dismissed reminders — created exclusively by
+// NotificationSchedulerService reacting to a domain event (see the schema-level comment above),
+// never written directly by a controller (per this milestone's own "do not deliver notifications
+// immediately inside controllers" business rule). `payload` is a free-form JSON blob carrying
+// whatever the originating event needs to deep-link back (e.g. `{ taskId }`, `{ habitId, date }`)
+// without inventing a column per NotificationType — the same "don't index/query it directly, so
+// don't force it into relational columns" reasoning CalendarSync.errorMessage/Goal.category
+// already established for fields that don't need a WHERE clause of their own.
+//
+// Hard delete (DELETE /notifications/:id) — a notification is disposable, re-derivable-from-source
+// content (the event that created it, or its source Task/Habit/etc., is still the record of truth),
+// not the irreplaceable user-authored content docs/06-database-design.md's soft-delete principle
+// protects, the same reasoning already applied to Routine/PlannerBlock/Calendar/CalendarEvent.
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String
+  message  String
+  type     NotificationType
+  priority NotificationPriority @default(NORMAL)
+  status   NotificationStatus   @default(PENDING)
+
+  // When this notification should become visible/delivered — "now" for most event reactions,
+  // pushed later when quiet hours are in effect (see NotificationSchedulerService). Distinct from
+  // `createdAt`, which is always the instant the row was written.
+  scheduledFor DateTime
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  payload      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  queue NotificationQueue?
+
+  @@index([userId, status])
+  @@index([userId, scheduledFor])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// Per-user (1:1) notification settings — auto-created with defaults on first read (the same
+// "find-or-create on first access" convention PlannerDay/HabitLog already establish for their own
+// per-user rows), not provisioned at registration time, since nothing needs it before this
+// milestone. `quietHoursStart`/`quietHoursEnd` follow RoutineStep.startTime/Habit.reminderTime's
+// established "HH:mm" local-time-of-day string convention (nullable — quiet hours are off by
+// default until a user sets both). `timezone` defaults to a copy of `User.timezone` at the moment
+// this row is first created (see NotificationPreferenceService), the same "own column, seeded from
+// the user's own timezone rather than recomputed from it on every read" shape `Calendar.timezone`
+// already uses — a user could in principle want quiet hours evaluated in a different zone than
+// their account's own, mirroring why Calendar keeps its own independent `timezone` column too.
+model NotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  quietHoursStart String?
+  quietHoursEnd   String?
+  timezone        String  @default("UTC")
+
+  enableTasks        Boolean @default(true)
+  enableHabits       Boolean @default(true)
+  enablePlanner      Boolean @default(true)
+  enableGoals        Boolean @default(true)
+  enableJournal      Boolean @default(true)
+  enableCalendar     Boolean @default(true)
+  enableStreaks      Boolean @default(true)
+  enableAchievements Boolean @default(true)
+
+  enableEmail Boolean @default(false)
+  enablePush  Boolean @default(false)
+  enableInApp Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+// One row per Notification, tracking its own delivery-attempt state — unlike CalendarSync's
+// deliberately append-only "one row per attempt" log, this is a single mutable row per
+// Notification because `attempts`/`nextAttempt`/`lastError`/`status` describe one ongoing retry
+// process, not a history of independent attempts worth keeping separately (NotificationQueueService
+// increments `attempts` and rewrites `nextAttempt`/`lastError`/`status` in place on every retry —
+// see its class doc). `status` is a plain String ("PENDING"/"PROCESSING"/"SENT"/"FAILED"), not a
+// new enum — the milestone's own Enums section lists only NotificationType/Priority/Status (all
+// three already modeled on Notification itself), so, matching the exact precedent CalendarSync's
+// own `status` column already set, one isn't invented here either. This is the seam a future
+// BullMQ worker process (`main.worker.ts`, anticipated since docs/05-architecture.md but still
+// unbuilt) drains — see NotificationQueueService.processDue for the callable-but-never-yet-
+// scheduled method that stands in for that worker today, the same "documented, tested, not
+// automatically invoked" shape Calendar's own recurrence.util.ts already established.
+model NotificationQueue {
+  id             String       @id @default(uuid())
+  notificationId String       @unique
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  attempts    Int       @default(0)
+  nextAttempt DateTime?
+  lastError   String?
+  status      String    @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttempt])
+  @@map("notification_queues")
 }

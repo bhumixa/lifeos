@@ -1,0 +1,21 @@
+<button type="button" mat-icon-button aria-label="Notifications" [matMenuTriggerFor]="notificationsMenu">
+  <span class="notification-bell">
+    <mat-icon>notifications</mat-icon>
+    <app-notification-badge class="notification-bell__badge" [count]="store.unreadCount()" />
+  </span>
+</button>
+
+<mat-menu #notificationsMenu="matMenu" class="notification-bell__menu">
+  <div class="notification-bell__panel">
+    <app-notification-list
+      [notifications]="store.unread().slice(0, 5)"
+      [loading]="store.unreadLoading()"
+      [compact]="true"
+      (read)="onRead($event)"
+      (dismissed)="onDismiss($event)"
+    />
+    <button type="button" mat-button class="notification-bell__view-all" (click)="viewAll()">
+      View all notifications
+    </button>
+  </div>
+</mat-menu>

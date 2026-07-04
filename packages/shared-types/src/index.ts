@@ -8,3 +8,4 @@ export * from './streak.types.js';
 export * from './goal.types.js';
 export * from './journal.types.js';
 export * from './calendar.types.js';
+export * from './notification.types.js';

@@ -93,6 +93,27 @@ export function getZonedHour(instant: Date, timeZone: string): number {
   return Number(hour);
 }
 
+/** The local hour and minute `instant` falls on in `timeZone` — the same primitive as
+ * `getZonedHour`, extended with minute precision for callers (Milestone 12's quiet-hours check)
+ * that need to compare against an "HH:mm" boundary rather than just an hour-of-day bucket. */
+export function getZonedTimeOfDay(
+  instant: Date,
+  timeZone: string,
+): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+    .formatToParts(instant)
+    .reduce<Record<string, string>>((acc, part) => {
+      acc[part.type] = part.value;
+      return acc;
+    }, {});
+  return { hour: Number(parts.hour), minute: Number(parts.minute) };
+}
+
 /** Adds `minutes` to a Date, returning a new instance (Date is otherwise mutable in place). */
 export function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);

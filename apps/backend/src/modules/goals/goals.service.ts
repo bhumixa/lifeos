@@ -1,13 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import type { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import {
+  GoalStatus,
   GoalTargetType,
   PlannerBlockType,
   Prisma,
   type Goal,
   type GoalMilestone,
 } from '../../../generated/prisma/index.js';
+import { GoalCompletedEvent, NOTIFICATION_EVENTS } from '../../events/index.js';
 import { TasksService } from '../tasks/tasks.service.js';
 import { HabitsService } from '../habits/habits.service.js';
 import { RoutinesService } from '../routines/routines.service.js';
@@ -49,6 +52,10 @@ type GoalWithMilestones = Goal & { milestones: GoalMilestone[] };
  * types and writes the refreshed value back. CUSTOM goals have no automatic source at all —
  * `currentValue` only ever changes via PATCH /goals/:id, and getProgress just reads it back
  * unchanged. See the class doc on Goal in prisma/schema.prisma for the full rationale.
+ *
+ * `update` additionally emits a GoalCompletedEvent (Milestone 12) via the globally-registered
+ * EventEmitter2 on the explicit transition into GoalStatus.COMPLETED — the same small, additive,
+ * behavior-preserving side effect TasksService.complete/HabitsService.createLog already gained.
  */
 @Injectable()
 export class GoalsService {
@@ -58,6 +65,7 @@ export class GoalsService {
     private readonly habitsService: HabitsService,
     private readonly routinesService: RoutinesService,
     private readonly plannerService: PlannerService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(
@@ -176,6 +184,20 @@ export class GoalsService {
       },
       include: { milestones: true },
     });
+
+    // Emits only on the explicit NOT_STARTED/ACTIVE/PAUSED/CANCELLED -> COMPLETED transition —
+    // Goal status is PATCH-driven, not auto-derived from currentValue (see the class doc on this
+    // service), so this is the one clear "a goal just finished" moment (Milestone 12).
+    if (
+      dto.status === GoalStatus.COMPLETED &&
+      existing.status !== GoalStatus.COMPLETED
+    ) {
+      this.eventEmitter.emit(
+        NOTIFICATION_EVENTS.GOAL_COMPLETED,
+        new GoalCompletedEvent(userId, goal.id, goal.title),
+      );
+    }
+
     return this.toResponse(goal);
   }
 

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   type OnModuleInit,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import type { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import {
@@ -12,6 +13,10 @@ import {
   type JournalAttachment,
   type JournalEntry,
 } from '../../../generated/prisma/index.js';
+import {
+  JournalCreatedEvent,
+  NOTIFICATION_EVENTS,
+} from '../../events/index.js';
 import {
   formatDateOnly,
   getZonedDateString,
@@ -61,7 +66,10 @@ const ENTRY_TYPES_LIMITED_TO_ONE_PER_DAY: JournalType[] = [
  */
 @Injectable()
 export class JournalService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   /** Upserts the prompt catalog from JOURNAL_PROMPT_DEFINITIONS — idempotent, so restarting the
    * app (or re-running this on every boot) is always safe. Mirrors
@@ -259,6 +267,10 @@ export class JournalService implements OnModuleInit {
       },
       include: { attachments: true },
     });
+    this.eventEmitter.emit(
+      NOTIFICATION_EVENTS.JOURNAL_CREATED,
+      new JournalCreatedEvent(userId, entry.id, entry.type),
+    );
     return this.toResponse(entry);
   }
 
