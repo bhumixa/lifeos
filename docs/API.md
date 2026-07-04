@@ -204,11 +204,59 @@ today's journal" is a plain link to `/journal`; Goal Detail's "related journal e
 `GET /journal/search?goalId=`. `JournalModule` itself imports nothing from any sibling module —
 see `docs/05-architecture.md`'s Milestone 10 note for the full rationale.
 
+## Calendar (Milestone 11)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/calendar` | List the requesting user's calendars — optionally filter by `provider`/`enabled`. Each row includes computed `eventCount` and `lastSyncedAt` (the most recent `CalendarSync.lastSync`). |
+| GET | `/calendar/:id` | One calendar. |
+| POST | `/calendar` | Create a calendar. `provider` defaults to `LOCAL`; creating a `GOOGLE`/`MICROSOFT`/`APPLE`/`ICAL` one only creates this row — no OAuth flow or external API call exists anywhere in this codebase yet (see the note below). |
+| PATCH | `/calendar/:id` | Update a calendar's own fields. |
+| DELETE | `/calendar/:id` | Hard-delete a calendar — cascades its own `CalendarEvent`/`CalendarSync` rows. |
+| GET | `/calendar/events` | Paginated list — filter by `calendarId`/`status`/`taskId`/`goalId`/`plannerBlockId`/`journalEntryId`/`from`/`to` (an ISO datetime range on `startTime`). What the Month/Week/Day views query for their visible range. |
+| GET | `/calendar/events/:id` | One event, including computed `conflictsWith` (see the note below). |
+| POST | `/calendar/events` | Create an event, optionally linked to a `plannerBlockId`/`taskId`/`goalId`/`journalEntryId` — see the note below. |
+| PATCH | `/calendar/events/:id` | Update an event, including its `status` (`ACTIVE`/`DISABLED`) and/or which calendar it belongs to. |
+| DELETE | `/calendar/events/:id` | Hard-delete an event. |
+| POST | `/calendar/sync` | Body `{ calendarId }`. Resolves the calendar's provider adapter, awaits its result, and appends one new `CalendarSync` row — see the note below. |
+
+**Local calendar functionality is fully real; every other provider is a documented placeholder.**
+`LocalCalendarProvider.sync` always succeeds immediately (a `LOCAL` calendar's events already live
+entirely in this database — there's nothing external to reconcile). `GoogleCalendarProvider`/
+`MicrosoftCalendarProvider`/`AppleCalendarProvider`/`IcalCalendarProvider` all extend
+`RemoteCalendarProvider`, whose `sync` always returns a `FAILED` result with an explicit
+"`<Provider>` sync is not yet implemented — OAuth and API integration are a planned future
+milestone" message — never a silent no-op, never a thrown 500. `CalendarProviderRegistry` is the
+one place that maps `Calendar.provider` to its adapter (`modules/calendar/providers/`); adding a
+real integration later means giving one provider class a real `sync` body, not touching
+`CalendarController`/`CalendarSyncService`.
+
+**The four optional cross-links on `CalendarEvent`** (`plannerBlockId`/`taskId`/`goalId`/
+`journalEntryId`) follow the exact `assertGoalOwnership`-style pattern every prior optional link in
+this API already uses — a raw existence check scoped to the requesting user, 404 if it doesn't
+belong to them, `onDelete: SetNull` at the database level. That last part is what makes "deleting
+linked objects should never delete calendar history automatically" (this milestone's own business
+rule) true structurally: deleting a Task/Goal/PlannerBlock/JournalEntry detaches this event from it
+but never removes the `CalendarEvent` row. Journal entries are, per that same business rule,
+read-only references — linking one adds no write path back into Journal.
+
+**`conflictsWith` is computed on every read, not stored** — ids of other `ACTIVE` events in the
+same calendar whose time range overlaps this one, reusing `planner/utils/scheduler.util.ts`'s
+`hasOverlap`/`Interval` helpers directly rather than a second overlap implementation. A `DISABLED`
+event never reports conflicts (it's already out of contention).
+
+**No recurrence field exists on `CalendarEvent`** — this milestone's own Testing section asks only
+for "recurring event preparation," not a working recurrence engine. `modules/calendar/utils/
+recurrence.util.ts`'s `prepareRecurringInstances` is the documented, tested (including across both
+2026 US DST transitions) seam a future recurrence milestone builds on; nothing calls it
+automatically today.
+
 ## Not yet implemented
 
-Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for
-milestone sequencing. XP/achievements are the beginning of "Gamification," per that roadmap's
-Phase 3, but a level system, badges beyond the fixed `Achievement` catalog, and daily/weekly
-Challenges remain unbuilt (see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is
-exported by `JournalModule` specifically so a future AI Coach module can reuse it as a read source
-for coaching context — no AI code exists yet.
+Notifications, AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone
+sequencing. XP/achievements are the beginning of "Gamification," per that roadmap's Phase 3, but a
+level system, badges beyond the fixed `Achievement` catalog, and daily/weekly Challenges remain
+unbuilt (see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is exported by
+`JournalModule` specifically so a future AI Coach module can reuse it as a read source for coaching
+context — no AI code exists yet. Calendar's own OAuth/external API integration (Google/Microsoft/
+Apple/iCal) remains unbuilt — see the Calendar section above.

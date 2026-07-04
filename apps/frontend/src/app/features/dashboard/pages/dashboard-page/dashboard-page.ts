@@ -7,11 +7,13 @@ import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
 import { formatDuration } from '../../../planner/utils/planner-display';
 import { computePlannerSummary } from '../../../planner/utils/planner-summary';
+import { CalendarScheduleCard } from '../../components/calendar-schedule-card/calendar-schedule-card';
 import { HabitsQuickComplete } from '../../components/habits-quick-complete/habits-quick-complete';
 import { PlannerTimelineCard } from '../../components/planner-timeline-card/planner-timeline-card';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
+import { DashboardCalendarService, type DashboardScheduleItem } from '../../services/dashboard-calendar.service';
 import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
 import { DashboardJournalService } from '../../services/dashboard-journal.service';
@@ -34,6 +36,7 @@ interface DashboardStat {
     RoutineSummaryCard,
     HabitsQuickComplete,
     PlannerTimelineCard,
+    CalendarScheduleCard,
     RecentActivity,
   ],
   templateUrl: './dashboard-page.html',
@@ -47,6 +50,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardStreaks = inject(DashboardStreaksService);
   private readonly dashboardGoals = inject(DashboardGoalsService);
   private readonly dashboardJournal = inject(DashboardJournalService);
+  private readonly dashboardCalendar = inject(DashboardCalendarService);
 
   protected readonly user = this.authService.user;
 
@@ -96,6 +100,15 @@ export class DashboardPage implements OnInit {
   protected readonly plannerLoading = signal(true);
   private readonly plannerDay = signal<PlannerDay | null>(null);
   protected readonly plannerBlocks = computed(() => this.plannerDay()?.blocks ?? []);
+
+  protected readonly calendarStatsLoading = signal(true);
+  protected readonly calendarStats = signal<DashboardStat[]>([
+    { label: "Today's Events", value: '—', icon: 'event' },
+    { label: 'Upcoming Events', value: '—', icon: 'event_upcoming' },
+    { label: 'Calendar Overview', value: '—', icon: 'calendar_month' },
+  ]);
+  protected readonly calendarScheduleLoading = signal(true);
+  protected readonly calendarSchedule = signal<DashboardScheduleItem[]>([]);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
@@ -228,6 +241,27 @@ export class DashboardPage implements OnInit {
         this.journalStatsLoading.set(false);
       },
       error: () => this.journalStatsLoading.set(false),
+    });
+
+    this.dashboardCalendar.load().subscribe({
+      next: (summary) => {
+        this.calendarStats.set([
+          { label: "Today's Events", value: String(summary.todayEventsCount), icon: 'event' },
+          { label: 'Upcoming Events', value: String(summary.upcomingEventsCount), icon: 'event_upcoming' },
+          {
+            label: 'Calendar Overview',
+            value: `${summary.enabledCalendarCount} / ${summary.calendarCount} enabled`,
+            icon: 'calendar_month',
+          },
+        ]);
+        this.calendarStatsLoading.set(false);
+        this.calendarSchedule.set(summary.todaySchedule);
+        this.calendarScheduleLoading.set(false);
+      },
+      error: () => {
+        this.calendarStatsLoading.set(false);
+        this.calendarScheduleLoading.set(false);
+      },
     });
   }
 

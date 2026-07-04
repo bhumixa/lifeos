@@ -1,0 +1,31 @@
+<div class="page">
+  <div class="page__header">
+    <div class="page__nav">
+      <button type="button" mat-icon-button (click)="previousMonth()" aria-label="Previous month">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <h1>{{ monthLabel() }}</h1>
+      <button type="button" mat-icon-button (click)="nextMonth()" aria-label="Next month">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button type="button" mat-stroked-button (click)="today()">Today</button>
+    </div>
+    <app-calendar-filters />
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="600px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else if (store.isEmpty()) {
+    <app-empty-state icon="calendar_today" title="No calendars yet" message="Create a calendar first from Calendar Settings." />
+  } @else {
+    <app-calendar-grid
+      [month]="month()"
+      [events]="visibleEvents()"
+      [calendarsById]="calendarsById()"
+      (dayClick)="onDayClick($event)"
+      (eventClick)="onEventClick($event)"
+    />
+  }
+</div>

@@ -1,0 +1,53 @@
+<div class="page">
+  <div class="page__header">
+    <div class="page__nav">
+      <button type="button" mat-icon-button (click)="previousWeek()" aria-label="Previous week">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <h1>{{ weekLabel() }}</h1>
+      <button type="button" mat-icon-button (click)="nextWeek()" aria-label="Next week">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button type="button" mat-stroked-button (click)="thisWeek()">This week</button>
+    </div>
+    <app-calendar-filters />
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="400px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else {
+    <div class="week-grid">
+      @for (cell of cells(); track cell.date) {
+        <div
+          class="week-grid__day"
+          [class.week-grid__day--today]="cell.isToday"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'Open ' + cell.date"
+          (click)="openDay(cell.date)"
+          (keydown.enter)="openDay(cell.date)"
+        >
+          <div class="week-grid__day-header">
+            <span class="week-grid__day-label">{{ cell.dayLabel }}</span>
+            <span class="week-grid__day-number">{{ cell.dayNumber }}</span>
+          </div>
+          <div class="week-grid__events">
+            @for (event of cell.events; track event.id) {
+              <app-event-card
+                [event]="event"
+                [calendar]="calendarsById().get(event.calendarId)"
+                [compact]="true"
+                (eventSelect)="openDay(cell.date)"
+              />
+            }
+            @if (cell.events.length === 0) {
+              <span class="week-grid__empty">No events</span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

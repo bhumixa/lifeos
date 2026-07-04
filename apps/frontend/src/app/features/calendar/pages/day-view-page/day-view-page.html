@@ -1,0 +1,70 @@
+<div class="page">
+  <div class="page__header">
+    <div class="page__nav">
+      <button type="button" mat-icon-button (click)="previousDay()" aria-label="Previous day">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <h1>{{ dateLabel() }}</h1>
+      <button type="button" mat-icon-button (click)="nextDay()" aria-label="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button type="button" mat-stroked-button (click)="goToToday()">Today</button>
+    </div>
+    <div class="page__actions">
+      <app-calendar-filters />
+      <button type="button" mat-flat-button color="primary" (click)="onAddEvent()" [disabled]="store.calendars().length === 0">
+        <mat-icon>add</mat-icon> Add Event
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="48px" />
+    <app-skeleton height="500px" />
+  } @else if (error()) {
+    <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+  } @else {
+    @if (allDayEvents().length > 0) {
+      <div class="all-day-row">
+        @for (event of allDayEvents(); track event.id) {
+          <span
+            class="all-day-chip"
+            [style.background]="calendarsById().get(event.calendarId)?.color"
+            role="button"
+            tabindex="0"
+            [attr.aria-label]="'Edit ' + event.title"
+            (click)="onEditEvent(event)"
+            (keydown.enter)="onEditEvent(event)"
+          >
+            {{ event.title }}
+          </span>
+        }
+      </div>
+    }
+
+    @if (isEmpty()) {
+      <app-empty-state icon="event_available" title="Nothing scheduled" message="Add an event to get started." />
+    }
+
+    <div class="timeline-surface" [style.height.px]="containerHeight">
+      @for (hour of hours; track hour) {
+        <div class="hour-line" [style.top.px]="hour * 60 * pixelsPerMinute">
+          <span class="hour-label">{{ hour === 0 ? '12 AM' : hour < 12 ? hour + ' AM' : hour === 12 ? '12 PM' : (hour - 12) + ' PM' }}</span>
+          <div class="rule"></div>
+        </div>
+      }
+
+      @for (event of visibleEvents(); track event.id) {
+        <app-drag-drop-event
+          [event]="event"
+          [calendar]="calendarsById().get(event.calendarId)"
+          [top]="topFor(event)"
+          [pixelsPerMinute]="pixelsPerMinute"
+          dragBoundary=".timeline-surface"
+          (edit)="onEditEvent($event)"
+          (move)="onMoveEvent($event)"
+        />
+      }
+    </div>
+  }
+</div>

@@ -6,6 +6,101 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 11 — Calendar & External Integrations (2026-07-04)
+
+Production-ready local Calendar module, architected as the scheduling layer integrating Planner,
+Tasks, Goals, and Journal, with external providers built as pluggable adapters rather than actual
+integrations: backend `modules/calendar` (11 endpoints — calendar CRUD, event CRUD, sync) plus a
+provider-adapter architecture (`ICalendarProvider` interface, `LocalCalendarProvider` fully
+functional, `GoogleCalendarProvider`/`MicrosoftCalendarProvider`/`AppleCalendarProvider`/
+`IcalCalendarProvider` documented placeholders via a shared `RemoteCalendarProvider` base), and a
+full frontend feature (Calendar Dashboard, Month/Week/Day Views, Calendar Settings; 9 components —
+Calendar Grid, Event Card, Mini Calendar, Agenda View, Calendar Filters, Event Dialog, Timezone
+Selector, Calendar Legend, Drag-and-Drop Event). The Dashboard gained four Calendar widgets
+(Today's Events, Upcoming Events, Calendar Overview, Today's Schedule — the last one a merged
+Planner-block/Calendar-event timeline reusing `GET /planner/today` directly rather than a new
+endpoint).
+
+Key decisions:
+- **`Calendar`/`CalendarEvent`/`CalendarSync` are new tables, not a repurposing of `PlannerBlock`.**
+  A `Calendar` is a plain user-owned container (the same role Routine/Habit/Goal play), independent
+  of Planner's own per-user-per-date `PlannerDay`/`PlannerBlock` model — this milestone explicitly
+  asks for Calendar to *integrate* Planner (via an optional `plannerBlockId` link), not replace or
+  absorb it. `CalendarEvent` has no `userId` of its own (reached only through `calendar: { userId
+  }`, the same pattern `PlannerBlock`/`RoutineStep` already establish); both `CalendarEvent` and
+  `Calendar` are hard-deleted (disposable configuration/scheduling data, not the irreplaceable
+  content the soft-delete principle protects), while `CalendarSync` is an append-only log — one row
+  per sync *attempt*, not a mutable "last known state" row, so a calendar's sync history stays
+  inspectable.
+- **The four cross-links on `CalendarEvent`** (`plannerBlockId`/`taskId`/`goalId`/`journalEntryId`)
+  are modeled identically to every prior optional cross-link in this codebase (Task/Habit/Routine/
+  PlannerBlock's `goalId`, JournalEntry's `goalId`/`plannerDayId`): nullable FK, `onDelete: SetNull`,
+  ownership validated in `CalendarEventsService` via a raw Prisma existence check rather than
+  injecting `TasksService`/`GoalsService`/`PlannerService`/`JournalService` — `CalendarModule`
+  imports no sibling feature module at all, the same "compose via raw checks, not DI, to avoid
+  depending on a whole module for one id check" reasoning Journal (Milestone 10) already
+  established. `onDelete: SetNull` is what makes "deleting linked objects should never delete
+  calendar history automatically" true at the database level, not just in application code. Journal
+  entries are, per the milestone's own business rule, read-only references — linking one adds no
+  write path back into Journal, matching how Journal itself never gained a new `GoalTargetType` in
+  Milestone 9.
+- **Provider architecture is real code, not a design doc.** `ICalendarProvider` (one method,
+  `sync`) is the seam `CalendarSyncService` depends on exclusively; `CalendarProviderRegistry` maps
+  `CalendarProvider` (LOCAL/GOOGLE/MICROSOFT/APPLE/ICAL) to its adapter — the same data-driven,
+  add-a-line-not-a-branch shape `AchievementsService`/`JournalService` already use for their own
+  catalogs. `LocalCalendarProvider.sync` succeeds immediately (nothing external to reconcile); every
+  other provider extends `RemoteCalendarProvider`, whose `sync` always returns a `FAILED` result
+  with an explicit "not yet implemented" message — chosen over a silent no-op or an unhandled
+  exception, so `POST /calendar/sync` against any provider always returns a clean, documented
+  result. `IcalCalendarProvider` is one adapter beyond the three the milestone brief names
+  explicitly (Google/Microsoft/Apple) — added because `CalendarProvider.ICAL` is a real, creatable
+  enum value on `Calendar.provider`, and leaving it unhandled in the registry would mean a legal
+  enum value with no adapter at all.
+- **Conflict detection and recurrence preparation are the two "Testing" asks this milestone
+  actually builds, deliberately scoped narrow.** `conflictsWith` is computed on every read (not
+  stored — the same "derived, not persisted" principle Habit/Routine/Goal already apply to their
+  own completion percentages), reusing `planner/utils/scheduler.util.ts`'s `hasOverlap`/`Interval`
+  helpers directly rather than a second overlap implementation. `modules/calendar/utils/
+  recurrence.util.ts`'s `prepareRecurringInstances` is timezone-aware "recurring event preparation"
+  (DAILY/WEEKLY/MONTHLY instance expansion from a wall-clock date/time, reusing
+  `planner/utils/timezone.util.ts`'s `zonedWallTimeToUtc`/`addDaysToDateString` directly) — not a
+  full RRULE engine, since `CalendarEvent` has no persisted recurrence field and nothing calls it
+  automatically yet. Both are covered by unit tests, including recurrence across both of
+  America/New_York's 2026 DST transitions (March 8 spring-forward, November 1 fall-back).
+- **Frontend feature isolation, mirroring Journal's own precedent for cross-feature reuse.**
+  `DragDropEvent` is Calendar's own drag-to-move timeline component (CDK, vertical-only, 5-minute
+  snapped) rather than importing Planner's `PlannerBlockComponent` — reaching into a sibling
+  feature's private `components/` folder would violate `docs/07-folder-structure.md`'s "shared code
+  belongs inside `shared/`" rule; cross-feature reuse on the frontend happens by composing a
+  sibling's exported *service* (`DashboardCalendarService` calls `PlannerApiService.today()`
+  directly for Today's Schedule), not its components. Month View is click-to-open (create/edit);
+  Day View is where drag-and-drop actually lives — the same split Planner itself draws between its
+  own read-mostly Week View and its richer, drag-enabled Day View, applied here for the same reason
+  (Week View's 7 columns are too narrow for meaningful drag placement).
+- **`EventDialog`'s "Advanced links" panel is three plain id fields, not full cross-feature
+  search-selects** — matching `BlockDialog`'s own precedent of only building a real picker where a
+  milestone brief specifically calls for one; this milestone's "Link planner block" verification
+  step is already exercised end-to-end by a plain id field. `journalEntryId` is shown read-only when
+  already set (per "Journal entries remain read-only references") and isn't offered as a
+  create-time input.
+- **Verification**: 48 new backend unit tests (calendar/event CRUD, cross-user isolation via
+  `calendar: { userId }` joins, all four link-ownership checks, conflict detection including the
+  DISABLED-never-conflicts rule, provider abstraction/registry resolving all five providers to
+  distinct adapters, and recurrence preparation across both 2026 DST transitions) plus the existing
+  351 all pass (399 total); 32 new frontend unit tests (API service, store, display utils,
+  `DashboardCalendarService`) plus the existing 249 all pass (281 total). The running backend was
+  exercised directly against a live Postgres database via curl — calendar CRUD, event CRUD with all
+  four optional links (including 404s for another user's task/goal/planner-block/journal-entry),
+  conflict detection on overlapping events, sync against a LOCAL calendar (SUCCESS) and a GOOGLE
+  calendar (documented FAILED), and cross-user isolation (a second user gets 404 on another user's
+  calendar/event, never their data) — see the Verification section of the milestone report for the
+  full transcript.
+- **Remaining work**: OAuth and real external API sync for Google/Microsoft/Apple/iCal (explicitly
+  out of scope this milestone); push/email notifications for upcoming events (Notifications is its
+  own unbuilt module); a persisted recurrence field/engine beyond the "preparation" utility;
+  cross-feature search-select pickers in `EventDialog`'s Advanced Links panel (currently plain id
+  fields).
+
 ## Milestone 10 — Journal, Reflection & Life Timeline (2026-07-04)
 
 Production-ready Journal system: backend `modules/journal` (10 endpoints — list/history/search/

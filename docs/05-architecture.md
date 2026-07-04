@@ -202,6 +202,32 @@ Goals already has for Task/Habit/Routine/Planner.
 deviation from `docs/06-database-design.md`'s own design principle naming those two fields for
 encryption at rest, not an oversight. See that doc's Milestone 10 note for the full rationale.
 
+**Milestone 11 (Calendar) imports no sibling module either — the second module, after Journal, to
+compose entirely via raw ownership checks rather than backend DI.** `CalendarEventsService`
+validates its four optional cross-links (`plannerBlockId`/`taskId`/`goalId`/`journalEntryId`) with
+the same `assertGoalOwnership`-shaped raw Prisma existence check every prior optional link already
+uses, not by injecting `TasksService`/`GoalsService`/`PlannerService`/`JournalService` — there's no
+write crossing a module boundary here either (Calendar only *references* other modules' rows via
+nullable FK, it never writes to them), so the same reasoning Journal's note above gives applies
+unchanged. On the frontend, `DashboardCalendarService` composes `CalendarApiService` with
+`PlannerApiService.today()` directly (reused, not re-implemented) for the Dashboard's "Today's
+Schedule" widget — the same "compose a sibling's exported service, not its internal components"
+rule, with one addition this milestone establishes: `DragDropEvent` is Calendar's own drag-to-move
+component rather than an import of Planner's `PlannerBlockComponent`, since reaching into a sibling
+feature's `components/` folder (as opposed to its exported service) would violate the folder
+structure doc's feature-isolation rule below.
+
+**Provider architecture — this codebase's first working interface+adapter pattern.**
+`docs/05-architecture.md` (this section, historically) anticipated an `AiProvider`
+(`ClaudeAdapter`/`OpenAiAdapter`) and a `NotificationChannel` (`PushAdapter`/`EmailAdapter`) using
+this shape, but neither has been built yet. Calendar's `ICalendarProvider` (`LocalCalendarProvider`,
+`GoogleCalendarProvider`/`MicrosoftCalendarProvider`/`AppleCalendarProvider`/`IcalCalendarProvider`
+via a shared `RemoteCalendarProvider` base, resolved through `CalendarProviderRegistry`) is the
+first of these three to actually exist in code — a template for how the AI/Notification providers
+can be structured once those modules are built: one small interface, a registry keyed by an enum,
+and adapters that are safe to call even when unimplemented (`RemoteCalendarProvider.sync` always
+returns a documented `FAILED` result, never a thrown exception or a silent no-op).
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:

@@ -38,6 +38,18 @@
 // module can import JournalModule and read a user's journal history as coaching context — no AI
 // code is added in this milestone, only the same "export for reuse" seam every prior
 // service-composing milestone has used.
+// Milestone 11 (Calendar & External Integrations) adds Calendar/CalendarEvent/CalendarSync.
+// Calendar is a user-owned container (LOCAL by default, or a placeholder row for a future
+// GOOGLE/MICROSOFT/APPLE/ICAL connection — see the comment on Calendar for why "connecting" a
+// provider is still just a local row today). CalendarEvent is the scheduling layer's actual
+// content — optionally cross-linked to a PlannerBlock/Task/Goal/JournalEntry via nullable
+// `onDelete: SetNull` FKs, the same "optional, one-directional, ownership-checked via raw Prisma
+// existence check" pattern Task/Habit/Routine/PlannerBlock already established for `goalId` and
+// JournalEntry established for `goalId`/`plannerDayId` — see the comment on CalendarEvent for the
+// full rationale and why deleting a linked Task/Goal/PlannerBlock/JournalEntry only detaches the
+// event (SetNull) rather than deleting the user's calendar history. CalendarSync is an
+// append-only per-sync-attempt log, not a single "last known state" row, so a calendar's sync
+// history is itself inspectable — see the comment on CalendarSync.
 
 generator client {
   provider = "prisma-client-js"
@@ -86,6 +98,7 @@ model User {
   freezeDays       FreezeDay[]
   goals            Goal[]
   journalEntries   JournalEntry[]
+  calendars        Calendar[]
 
   @@map("users")
 }
@@ -152,6 +165,11 @@ model Task {
   // explicitly) — DELETE /tasks/:id sets this instead of removing the row, so it stays
   // recoverable and consistent with how the rest of the schema treats user-generated content.
   deletedAt DateTime?
+
+  // Milestone 11: CalendarEvents that optionally reference this task — see the comment on
+  // CalendarEvent. Deleting a Task never deletes its linked CalendarEvent(s) (onDelete: SetNull
+  // on the other side), so calendar history survives its source Task being removed.
+  calendarEvents CalendarEvent[]
 
   @@index([userId, status])
   @@index([userId, dueDate])
@@ -369,6 +387,12 @@ model PlannerBlock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Milestone 11: CalendarEvents that optionally reference this block — see the comment on
+  // CalendarEvent. "Planner blocks may create calendar events" (the milestone's own business
+  // rule) means POST /calendar/events accepts an optional `plannerBlockId`, not that PlannerBlock
+  // itself gains any Calendar awareness — PlannerService is untouched by this milestone.
+  calendarEvents CalendarEvent[]
+
   @@index([plannerDayId, order])
   @@index([plannerDayId, startTime])
   @@index([goalId])
@@ -522,6 +546,11 @@ model Goal {
   routines       Routine[]
   plannerBlocks  PlannerBlock[]
   journalEntries JournalEntry[]
+  // Milestone 11: CalendarEvents that optionally reference this goal (e.g. a milestone-deadline
+  // event) — see the comment on CalendarEvent. Not a new progress input: CalendarEvent doesn't
+  // feed GoalTargetType/currentValue, the same "reference, not a progress source" treatment
+  // JournalEntry.goalId already gets.
+  calendarEvents CalendarEvent[]
 
   @@index([userId, status])
   @@index([userId, archived])
@@ -685,6 +714,12 @@ model JournalEntry {
 
   attachments JournalAttachment[]
 
+  // Milestone 11: CalendarEvents that optionally reference this entry. Per the milestone's own
+  // business rule ("Journal entries remain read-only references"), a CalendarEvent may point at a
+  // JournalEntry for display, but nothing about Journal itself changes — no calendar-awareness is
+  // added to JournalService/JournalController.
+  calendarEvents CalendarEvent[]
+
   @@index([userId, date])
   @@index([userId, date, type])
   @@index([userId, type])
@@ -745,4 +780,164 @@ model JournalPrompt {
 
   @@index([type, order])
   @@map("journal_prompts")
+}
+
+// Which system a Calendar is backed by. LOCAL is the only one this milestone actually syncs data
+// for; GOOGLE/MICROSOFT/APPLE/ICAL rows can already be created (Calendar.provider accepts them
+// today, per the "design as pluggable integrations" instruction) but their CalendarProvider
+// adapter (see modules/calendar/providers/) always returns a FAILED CalendarSync with a "not yet
+// implemented" errorMessage — see the comment on CalendarSync.
+enum CalendarProvider {
+  LOCAL
+  GOOGLE
+  MICROSOFT
+  APPLE
+  ICAL
+}
+
+// Whether a CalendarEvent originated locally (created directly, or via a link to a
+// Task/Routine/PlannerBlock/Goal) or was pulled in from an external provider during a sync. Not
+// meaningful yet for any provider besides LOCAL — kept as its own enum (not folded into
+// CalendarProvider) because a future GOOGLE-provider Calendar could still contain a LOCAL-source
+// event a user created directly inside LifeOS alongside SYNCED ones pulled from Google.
+enum CalendarSource {
+  LOCAL
+  SYNCED
+}
+
+// A CalendarEvent's own lifecycle flag — ACTIVE for a normal event, DISABLED for one a user (or a
+// future sync reconciliation) has turned off without deleting its history. Deliberately not named
+// CONFIRMED/CANCELLED/TENTATIVE (the usual external-calendar vocabulary): this milestone doesn't
+// model provider-side RSVP/confirmation states, only "is this event currently in effect."
+enum CalendarStatus {
+  ACTIVE
+  DISABLED
+}
+
+// A user-owned calendar container — the same role Routine/Habit play as a "thing a user creates
+// and configures," not a single implicit per-user calendar. LOCAL is the default and only fully
+// functional provider this milestone builds; a Calendar row with `provider: GOOGLE` (etc.) can
+// already be created so the frontend's Calendar Settings page and the provider architecture have
+// something real to point at, but "connecting" one today only creates the row — no OAuth flow, no
+// external API call exists anywhere in this codebase (see the class doc on ICalendarProvider).
+// `timezone` is per-calendar (not read from User.timezone) because a user may deliberately keep a
+// second calendar in a different zone (e.g. a shared/family calendar) — defaults to "UTC" like
+// User.timezone does, and PlannerService/JournalService's own per-user timezone remains the
+// source of truth for Planner/Journal "today" regardless of what a given Calendar's timezone is
+// set to.
+model Calendar {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String
+  provider CalendarProvider @default(LOCAL)
+  color    String
+  timezone String           @default("UTC")
+  enabled  Boolean          @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events CalendarEvent[]
+  syncs  CalendarSync[]
+
+  @@index([userId, enabled])
+  @@map("calendars")
+}
+
+// A single scheduled item on a Calendar. Ownership has no `userId` column of its own — like
+// RoutineStep/PlannerBlock, it's only ever reached through its parent Calendar, ownership
+// enforced by joining `calendar: { userId }` (see CalendarService).
+//
+// The four optional cross-links (`plannerBlockId`/`taskId`/`goalId`/`journalEntryId`) are the
+// milestone's own "Planner blocks may create calendar events. Tasks may optionally create events.
+// Goals may create milestone events. Journal entries remain read-only references." business
+// rules, modeled identically to how Task/Habit/Routine/PlannerBlock already point at Goal
+// (Milestone 9) and JournalEntry points at Goal/PlannerDay (Milestone 10): nullable FK,
+// `onDelete: SetNull`, ownership validated in CalendarEventsService via a raw Prisma existence
+// check rather than injecting TasksService/GoalsService/PlannerService/JournalService — the same
+// "no circular-import risk, no need to depend on a whole sibling module for one id check" reason
+// every prior cross-link already gives. `onDelete: SetNull` is what makes the milestone's
+// "deleting linked objects should never delete calendar history automatically" rule true at the
+// database level, not just in application code: deleting a Task/Goal/PlannerBlock/JournalEntry
+// detaches this event from it but leaves the CalendarEvent row (and therefore the user's calendar
+// history) intact.
+//
+// `externalId` is the id an external provider (Google/Microsoft/Apple/iCal) assigned to this
+// event — null for every event today, since no sync path that could populate it exists yet (see
+// the comment on Calendar). `source` distinguishes an event a user created directly
+// (`LOCAL`, the only value ever written today) from one a future sync would pull in (`SYNCED`).
+//
+// No recurrence field/table (RRULE or otherwise) is modeled — the milestone brief's field list
+// doesn't include one, and this milestone's own "Testing" section asks only for "recurring event
+// preparation," not a working recurrence engine; see CalendarEventsService's recurrence-prep
+// helper for the documented, tested subset (single-instance expansion) that stands in for it.
+//
+// Conflict detection (overlapping events within the same Calendar) is computed on read, not
+// stored — the same "derived, not persisted" principle Routine/Habit/Goal already apply to their
+// own completion percentages — reusing planner/utils/scheduler.util.ts's `hasOverlap`/`Interval`
+// helpers directly rather than re-implementing overlap math a second time.
+model CalendarEvent {
+  id         String   @id @default(uuid())
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  plannerBlockId String?
+  plannerBlock   PlannerBlock? @relation(fields: [plannerBlockId], references: [id], onDelete: SetNull)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  externalId  String?
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  allDay      Boolean        @default(false)
+  location    String?
+  source      CalendarSource @default(LOCAL)
+  status      CalendarStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([calendarId, startTime])
+  @@index([plannerBlockId])
+  @@index([taskId])
+  @@index([goalId])
+  @@index([journalEntryId])
+  @@map("calendar_events")
+}
+
+// An append-only log of sync attempts for one Calendar — one row per attempt, not a single
+// "current state" row overwritten in place, so a calendar's sync history stays inspectable (e.g.
+// a future Calendar Settings "sync history" panel) the same way UserAchievement's `unlockedAt`
+// stays a durable fact rather than a mutable status flag. `status` is a plain String
+// ("PENDING"/"SUCCESS"/"FAILED") rather than a new enum — the milestone's own Enums section names
+// only CalendarProvider/CalendarSource/CalendarStatus, so (matching the exact precedent
+// Goal.category and JournalEntry.productivity already set) an enum isn't invented for a field the
+// brief didn't ask to be one; CalendarSyncService writes and validates one of "PENDING"/
+// "SUCCESS"/"FAILED" on every row. `lastSync` is nullable because a FAILED attempt (every
+// non-LOCAL provider today — see the comment on Calendar) has no successful completion instant to
+// record; a SUCCESS row always sets it to the instant the sync finished.
+model CalendarSync {
+  id         String   @id @default(uuid())
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  lastSync     DateTime?
+  status       String
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+
+  @@index([calendarId, createdAt])
+  @@map("calendar_syncs")
 }

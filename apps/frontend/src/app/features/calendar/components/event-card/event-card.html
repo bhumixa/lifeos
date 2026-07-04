@@ -1,0 +1,17 @@
+<div
+  class="event-card"
+  [class.event-card--compact]="compact()"
+  [style.border-left-color]="color()"
+  role="button"
+  tabindex="0"
+  [attr.aria-label]="'Open ' + event().title"
+  (click)="onClick($event)"
+  (keydown.enter)="onClick($event)"
+  (keydown.space)="onClick($event)"
+>
+  @if (hasConflict()) {
+    <mat-icon class="event-card__conflict" [attr.aria-label]="'Conflicts with another event'">warning</mat-icon>
+  }
+  <span class="event-card__title">{{ event().title }}</span>
+  <span class="event-card__time">{{ timeLabel() }}</span>
+</div>

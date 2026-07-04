@@ -14,6 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Streaks', icon: 'local_fire_department', route: '/streaks' },
   { label: 'Goals', icon: 'flag', route: '/goals' },
   { label: 'Journal', icon: 'book', route: '/journal' },
+  { label: 'Calendar', icon: 'event', route: '/calendar' },
   { label: 'AI Coach', icon: 'psychology', route: '/ai-coach' },
   { label: 'Analytics', icon: 'insights', route: '/analytics' },
   { label: 'Settings', icon: 'settings', route: '/settings' },

@@ -1,0 +1,9 @@
+<ul class="calendar-legend">
+  @for (calendar of calendars(); track calendar.id) {
+    <li class="calendar-legend__row">
+      <span class="calendar-legend__swatch" [style.background]="calendar.color"></span>
+      <span class="calendar-legend__name">{{ calendar.name }}</span>
+      <span class="calendar-legend__count">{{ calendar.eventCount }}</span>
+    </li>
+  }
+</ul>

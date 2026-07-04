@@ -1,0 +1,15 @@
+<div class="agenda-view">
+  @if (groups().length === 0) {
+    <p class="agenda-view__empty">{{ emptyMessage() }}</p>
+  }
+  @for (group of groups(); track group.date) {
+    <div class="agenda-view__group">
+      <h4 class="agenda-view__date">{{ group.dayLabel }}</h4>
+      <div class="agenda-view__events">
+        @for (event of group.events; track event.id) {
+          <app-event-card [event]="event" [calendar]="calendarFor(event)" (eventSelect)="onEventClick($event)" />
+        }
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,25 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Today's Schedule</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="schedule-card">
+    @if (loading()) {
+      <p class="hint">Loading…</p>
+    } @else if (items().length === 0) {
+      <p class="hint">Nothing scheduled today.</p>
+    } @else {
+      <ul class="list">
+        @for (item of items(); track item.id) {
+          <li>
+            <mat-icon [style.color]="item.color">{{ item.source === 'planner' ? 'checklist' : 'event' }}</mat-icon>
+            <span class="time">{{ item.startTime | date: 'shortTime' }}</span>
+            <span class="title">{{ item.title }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </mat-card-content>
+  <mat-card-actions align="end">
+    <a mat-button routerLink="/calendar/day">Open Day View</a>
+  </mat-card-actions>
+</mat-card>

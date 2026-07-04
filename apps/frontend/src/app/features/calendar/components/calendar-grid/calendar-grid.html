@@ -1,0 +1,39 @@
+<div class="calendar-grid">
+  <div class="calendar-grid__weekday-row">
+    @for (day of weekdayLabels; track day) {
+      <span class="calendar-grid__weekday">{{ day }}</span>
+    }
+  </div>
+
+  @for (week of weeks(); track $index) {
+    <div class="calendar-grid__week">
+      @for (cell of week; track cell.date) {
+        <div
+          class="calendar-grid__cell"
+          [class.calendar-grid__cell--outside]="!cell.isCurrentMonth"
+          [class.calendar-grid__cell--today]="cell.isToday"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'Add event on ' + cell.date"
+          (click)="onDayClick(cell.date)"
+          (keydown.enter)="onDayClick(cell.date)"
+        >
+          <span class="calendar-grid__day-number">{{ cell.dayOfMonth }}</span>
+          <div class="calendar-grid__events">
+            @for (event of cell.events.slice(0, maxVisible); track event.id) {
+              <app-event-card
+                [event]="event"
+                [calendar]="calendarFor(event)"
+                [compact]="true"
+                (eventSelect)="onEventClick($event)"
+              />
+            }
+            @if (cell.events.length > maxVisible) {
+              <span class="calendar-grid__overflow">+{{ cell.events.length - maxVisible }} more</span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

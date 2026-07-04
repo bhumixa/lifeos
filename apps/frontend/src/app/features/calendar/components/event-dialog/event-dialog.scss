@@ -1,0 +1,33 @@
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 400px;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.time-row {
+  display: flex;
+  gap: 1rem;
+
+  mat-form-field {
+    flex: 1;
+  }
+}
+
+.advanced-links {
+  margin-top: 0.5rem;
+
+  &__journal {
+    font-size: 0.8rem;
+    opacity: 0.7;
+  }
+}

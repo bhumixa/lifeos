@@ -1,0 +1,14 @@
+<div class="calendar-filters">
+  @for (calendar of calendars(); track calendar.id) {
+    <div class="calendar-filters__row">
+      <mat-checkbox
+        [checked]="store.isVisible(calendar.id)"
+        [disabled]="!calendar.enabled"
+        (change)="toggle(calendar.id)"
+      >
+        <span class="calendar-filters__swatch" [style.background]="calendar.color"></span>
+        {{ calendar.name }}
+      </mat-checkbox>
+    </div>
+  }
+</div>

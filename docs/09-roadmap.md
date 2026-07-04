@@ -24,7 +24,16 @@ This expands the PRD's section 13 milestone list into sequenced phases with depe
 
 - Task management (priorities, categories, deadlines, recurring tasks, subtasks, tags, notes).
 - Daily Planner (time blocking, drag-and-drop, templates, day/week/month views).
-- Calendar (day/week/month views, recurring events, color coding).
+- Calendar (day/week/month views, recurring events, color coding). **As implemented (Milestone
+  11):** built as its own standalone milestone well after Phase 2's other items (Task Management/
+  Daily Planner/Dashboard v1 shipped in Milestones 4/7/3 respectively), following the same
+  "front-load a later-phase item as an explicit standalone milestone" pattern Journal (Milestone
+  10) and Goals (Milestone 9) already set — see `docs/changelog.md`. Recurring events are only
+  "recurring event preparation" (a tested, timezone-aware expansion utility), not a persisted
+  recurrence field or a working recurrence engine; external provider sync (Google/Microsoft/
+  Apple/iCal) is architected (a real interface + adapter registry) but deliberately unimplemented —
+  no OAuth flow or external API call exists anywhere in this codebase yet, so this item isn't yet
+  fully closed either.
 - Dashboard v1 wired to real task/schedule data (today's schedule, current task, upcoming tasks).
 
 **Depends on:** Phase 1. This is the largest single phase — it's the product's functional core and everything downstream (habits, streaks, AI coach) reads from or writes to it.

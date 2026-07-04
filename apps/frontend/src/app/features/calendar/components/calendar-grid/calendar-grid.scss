@@ -1,0 +1,62 @@
+.calendar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  &__weekday-row,
+  &__week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+  }
+
+  &__weekday {
+    text-align: center;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    padding: 0.375rem 0;
+    background: var(--mat-sys-surface, #fff);
+  }
+
+  &__cell {
+    min-height: 110px;
+    background: var(--mat-sys-surface, #fff);
+    padding: 0.375rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(63, 81, 181, 0.04);
+    }
+
+    &--outside {
+      opacity: 0.4;
+    }
+
+    &--today {
+      box-shadow: inset 0 0 0 2px #3f51b5;
+    }
+  }
+
+  &__day-number {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  &__events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow: hidden;
+  }
+
+  &__overflow {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    padding-left: 0.25rem;
+  }
+}

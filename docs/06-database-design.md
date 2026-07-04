@@ -281,6 +281,88 @@ Streak
 >   requiring a separate provisioning step, the same convention `HabitLog`'s `(habitId, date)`
 >   uniqueness supports for its own upsert-like reads.
 
+> **Added in Milestone 11 — Calendar & External Integrations (not originally in this doc as its
+> own entity — this doc's original `ScheduleBlock` sketch above was the closest existing concept
+> for "external calendar sync," but Milestone 7 built that concept's actual replacement as
+> `PlannerDay`/`PlannerBlock` instead, per the note above; `ScheduleBlock` itself was never
+> implemented):** as implemented:
+>
+> ```
+> Calendar
+>   id                uuid PK
+>   userId            FK -> User
+>   name              string
+>   provider          enum(LOCAL, GOOGLE, MICROSOFT, APPLE, ICAL), default LOCAL
+>   color             string
+>   timezone          string, default "UTC"   -- independent of User.timezone
+>   enabled           boolean, default true
+>   createdAt / updatedAt
+>
+> CalendarEvent
+>   id                uuid PK
+>   calendarId        FK -> Calendar
+>   plannerBlockId    FK -> PlannerBlock, nullable, onDelete SetNull
+>   taskId            FK -> Task, nullable, onDelete SetNull
+>   goalId            FK -> Goal, nullable, onDelete SetNull
+>   journalEntryId    FK -> JournalEntry, nullable, onDelete SetNull
+>   externalId        string, nullable   -- an external provider's own event id; always null today
+>   title             string
+>   description       string, nullable
+>   startTime / endTime  timestamp
+>   allDay            boolean, default false
+>   location          string, nullable
+>   source            enum(LOCAL, SYNCED), default LOCAL
+>   status            enum(ACTIVE, DISABLED), default ACTIVE
+>   createdAt / updatedAt
+>
+> CalendarSync
+>   id                uuid PK
+>   calendarId        FK -> Calendar
+>   lastSync          timestamp, nullable   -- null for a FAILED attempt (every non-LOCAL provider today)
+>   status            string   -- "PENDING" | "SUCCESS" | "FAILED"; no dedicated enum (see below)
+>   errorMessage      string, nullable
+>   createdAt
+> ```
+>
+> - **A new, independent entity — not a repurposing of `PlannerBlock`.** `Calendar` is a plain
+>   user-owned container (the same role Routine/Habit/Goal play as "a thing a user creates and
+>   configures"), separate from Planner's own per-user-per-date `PlannerDay`/`PlannerBlock` model;
+>   this milestone's own brief asks Calendar to *integrate* Planner (an optional `plannerBlockId`
+>   link, "Planner blocks may create calendar events"), not absorb or replace it.
+> - **The four optional cross-links on `CalendarEvent`** follow exactly the pattern
+>   Task/Habit/Routine/PlannerBlock already established for `goalId` in Milestone 9, and
+>   JournalEntry for `goalId`/`plannerDayId` in Milestone 10: nullable FK, `onDelete: SetNull`,
+>   ownership validated via a raw Prisma existence check in `CalendarEventsService` rather than an
+>   injected service. `onDelete: SetNull` is what makes this milestone's own "deleting linked
+>   objects should never delete calendar history automatically" rule true at the database level.
+>   Journal entries are, per that same rule, read-only references — no write path back into
+>   Journal exists, the same "display-only, no new `GoalTargetType`" treatment `JournalEntry.goalId`
+>   already got in Milestone 10.
+> - **Hard delete on `Calendar`/`CalendarEvent`, like Routine/PlannerBlock** — both are disposable
+>   configuration/scheduling data, not the irreplaceable content the soft-delete principle
+>   protects. Deleting a `Calendar` cascades to its own `CalendarEvent`/`CalendarSync` rows (that's
+>   the calendar's *own* history) — a different thing entirely from a linked Task/Goal/
+>   PlannerBlock/JournalEntry being deleted, which only detaches (`SetNull`), never cascades.
+> - **`CalendarSync` is append-only** — one row per sync *attempt*, not a single mutable
+>   "last-known-state" row overwritten in place, so a calendar's sync history stays inspectable
+>   (e.g. a future "sync history" panel), the same "durable fact, not a mutable status flag"
+>   treatment `UserAchievement.unlockedAt` already gets. `status` is a plain string rather than a
+>   new enum — the milestone's own Enums section names only `CalendarProvider`/`CalendarSource`/
+>   `CalendarStatus`, so (matching the exact precedent `Goal.category` and
+>   `JournalEntry.productivity` already set) an enum isn't invented for a field the brief didn't
+>   ask to be one.
+> - **No recurrence field** — this milestone's own Testing section asks only for "recurring event
+>   preparation," not a working recurrence engine (see `modules/calendar/utils/recurrence.util.ts`,
+>   covered by unit tests including both 2026 DST transitions, but never called automatically).
+> - **`conflictsWith` (an event's overlapping-sibling ids) is computed on every read, not stored** —
+>   the same "derived, not persisted" principle Habit/Routine/Goal already apply to their own
+>   completion percentages, reusing `planner/utils/scheduler.util.ts`'s overlap helpers directly.
+> - **Provider architecture is real, working code** — `ICalendarProvider`/`CalendarProviderRegistry`
+>   /`LocalCalendarProvider`/`RemoteCalendarProvider` (and its four subclasses) are the first actual
+>   implementation of the interface-plus-adapter shape `docs/05-architecture.md` has anticipated
+>   for `AiProvider`/`NotificationChannel` since early milestones — see that doc's own Milestone 11
+>   note for the full rationale.
+
 > **Added in Milestone 8 — Streak Engine & Gamification Foundation (not originally in this
 > doc — the closest existing concepts are `Streak` above and `GamificationProfile`/`Badge`/
 > `UserBadge`/`Challenge`/`UserChallenge` below):**
@@ -625,6 +707,7 @@ AdminAuditLog
 - `(userId, startTime)` on `ScheduleBlock` for calendar range queries. As implemented (Milestone 7): `PlannerDay` carries `(userId, date)` (unique + indexed) instead, since every Planner query starts from "this user's day," and `PlannerBlock` carries `(plannerDayId, order)` and `(plannerDayId, startTime)` for its own list/timeline ordering.
 - Unique constraints: `User.email`, `User.googleId`, `(HabitId, date)` on `HabitLog`, `(userId, date)` on `DailyStat`, `(userId, badgeId)` on `UserBadge`. As implemented: also `(userId, date)` on `PlannerDay` (Milestone 7) and `(userId, name)` on `Habit` (Milestone 6).
 - As implemented (Milestone 9): `Goal` carries `(userId, status)` and `(userId, archived)`; `GoalMilestone` carries `(goalId, order)` for its own list ordering, the same role `RoutineStep`'s `(routineId, order)` plays. `Task`/`Habit`/`Routine`/`PlannerBlock` each gained a plain `(goalId)` index backing the progress-aggregation queries `GoalsService` runs per `targetType`.
+- As implemented (Milestone 11): `Calendar` carries `(userId, enabled)`. `CalendarEvent` carries `(calendarId, startTime)` for the Month/Week/Day views' range queries, plus a plain index on each of its four optional cross-link columns (`plannerBlockId`, `taskId`, `goalId`, `journalEntryId`) — the same "index every optional cross-link" convention `goalId` already gets everywhere else. `CalendarSync` carries `(calendarId, createdAt)` for "most recent sync attempt" lookups.
 
 ## Why this shape
 

@@ -1,0 +1,8 @@
+<mat-form-field appearance="outline">
+  <mat-label>{{ label() }}</mat-label>
+  <mat-select [value]="value()" (selectionChange)="onChange($event.value)">
+    @for (timezone of timezones; track timezone) {
+      <mat-option [value]="timezone">{{ timezone }}</mat-option>
+    }
+  </mat-select>
+</mat-form-field>

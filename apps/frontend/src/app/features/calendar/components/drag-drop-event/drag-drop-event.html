@@ -1,0 +1,25 @@
+<div
+  class="event-block"
+  cdkDrag
+  cdkDragLockAxis="y"
+  [cdkDragBoundary]="dragBoundary()"
+  (cdkDragEnded)="onDragEnded($event)"
+  [style.top.px]="top()"
+  [style.height.px]="height()"
+  [style.border-left-color]="color()"
+  [class.conflict]="hasConflict()"
+  role="button"
+  tabindex="0"
+  [attr.aria-label]="'Edit ' + event().title"
+  (click)="onClick()"
+  (keydown.enter)="onClick()"
+  (keydown.space)="onClick()"
+>
+  @if (hasConflict()) {
+    <mat-icon class="conflict-icon">warning</mat-icon>
+  }
+  <div class="content">
+    <span class="title">{{ event().title }}</span>
+    <span class="time">{{ timeLabel() }}</span>
+  </div>
+</div>

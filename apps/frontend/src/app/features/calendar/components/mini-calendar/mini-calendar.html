@@ -1,0 +1,41 @@
+<div class="mini-calendar">
+  <div class="mini-calendar__header">
+    <button type="button" mat-icon-button (click)="previousMonth()" aria-label="Previous month">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span class="mini-calendar__label">{{ monthLabel() }}</span>
+    <button type="button" mat-icon-button (click)="nextMonth()" aria-label="Next month">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+
+  <div class="mini-calendar__weekday-row">
+    @for (day of weekdayLabels; track $index) {
+      <span class="mini-calendar__weekday">{{ day }}</span>
+    }
+  </div>
+
+  @for (week of weeks(); track $index) {
+    <div class="mini-calendar__week">
+      @for (cell of week; track cell.date ?? $index) {
+        <button
+          type="button"
+          class="mini-calendar__cell"
+          [class.mini-calendar__cell--empty]="!cell.date"
+          [class.mini-calendar__cell--has-events]="cell.hasEvents"
+          [class.mini-calendar__cell--selected]="isSelected(cell)"
+          [class.mini-calendar__cell--today]="isToday(cell)"
+          [disabled]="!cell.date"
+          (click)="selectDate(cell)"
+        >
+          @if (cell.dayOfMonth) {
+            <span class="mini-calendar__day">{{ cell.dayOfMonth }}</span>
+            @if (cell.hasEvents) {
+              <span class="mini-calendar__dot"></span>
+            }
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

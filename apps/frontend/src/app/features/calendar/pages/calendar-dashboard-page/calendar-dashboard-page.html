@@ -1,0 +1,59 @@
+<div class="page">
+  <div class="page__header">
+    <h1>Calendar</h1>
+    <div class="page__actions">
+      <button type="button" mat-stroked-button (click)="goToWeek()">
+        <mat-icon>calendar_view_week</mat-icon> Week
+      </button>
+      <button type="button" mat-stroked-button (click)="goToMonth()">
+        <mat-icon>calendar_month</mat-icon> Month
+      </button>
+      <button type="button" mat-stroked-button (click)="goToSettings()">
+        <mat-icon>settings</mat-icon> Settings
+      </button>
+      <button type="button" mat-flat-button color="primary" (click)="onAddEvent()" [disabled]="store.calendars().length === 0">
+        <mat-icon>add</mat-icon> Add Event
+      </button>
+    </div>
+  </div>
+
+  <div class="page__grid">
+    <div class="page__sidebar">
+      <app-mini-calendar [events]="monthEvents()" [month]="month()" (monthChange)="onMonthChange($event)" (dateSelect)="onDateSelect($event)" />
+
+      @if (store.isEmpty()) {
+        <app-empty-state
+          icon="calendar_today"
+          title="No calendars yet"
+          message="Create your first calendar to start scheduling events."
+        />
+      } @else {
+        <div class="page__section">
+          <h3>Calendars</h3>
+          <app-calendar-legend [calendars]="store.calendars()" />
+        </div>
+        <div class="page__section">
+          <h3>Filters</h3>
+          <app-calendar-filters />
+        </div>
+      }
+    </div>
+
+    <div class="page__main">
+      <h3>Upcoming (next 7 days)</h3>
+      @if (loading()) {
+        <app-skeleton height="80px" />
+        <app-skeleton height="80px" />
+      } @else if (error()) {
+        <app-empty-state icon="error_outline" title="Something went wrong" [message]="error()!" />
+      } @else {
+        <app-agenda-view
+          [events]="upcomingEvents()"
+          [calendarsById]="calendarsById()"
+          emptyMessage="Nothing scheduled in the next 7 days."
+          (eventClick)="onEventClick($event)"
+        />
+      }
+    </div>
+  </div>
+</div>

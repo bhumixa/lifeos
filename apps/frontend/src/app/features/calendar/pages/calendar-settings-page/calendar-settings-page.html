@@ -1,0 +1,86 @@
+<div class="page">
+  <h1>Calendar Settings</h1>
+
+  <div class="page__grid">
+    <form class="calendar-form" [formGroup]="form" (ngSubmit)="submit()">
+      <h3>{{ editingId() ? 'Edit calendar' : 'New calendar' }}</h3>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input matInput formControlName="name" maxlength="100" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Provider</mat-label>
+        <mat-select formControlName="provider">
+          @for (provider of providerOptions; track provider) {
+            <mat-option [value]="provider">{{ provider }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <app-timezone-selector [value]="form.controls.timezone.value" (valueChange)="form.patchValue({ timezone: $event })" />
+
+      <div class="color-row">
+        @for (color of colorOptions; track color) {
+          <button
+            type="button"
+            class="swatch"
+            [style.background]="color"
+            [class.selected]="form.controls.color.value === color"
+            [attr.aria-label]="'Choose color ' + color"
+            (click)="form.patchValue({ color })"
+          ></button>
+        }
+      </div>
+
+      <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
+
+      <div class="calendar-form__actions">
+        @if (editingId()) {
+          <button type="button" mat-button (click)="startCreate()">Cancel</button>
+        }
+        <button type="submit" mat-flat-button color="primary">{{ editingId() ? 'Save' : 'Create' }}</button>
+      </div>
+    </form>
+
+    <div class="calendar-list">
+      <h3>Your calendars</h3>
+      @if (store.loading()) {
+        <app-skeleton height="60px" />
+        <app-skeleton height="60px" />
+      } @else if (store.isEmpty()) {
+        <app-empty-state icon="calendar_today" title="No calendars yet" message="Create your first calendar above." />
+      } @else {
+        @for (calendar of store.calendars(); track calendar.id) {
+          <div class="calendar-row">
+            <span class="calendar-row__swatch" [style.background]="calendar.color"></span>
+            <div class="calendar-row__info">
+              <span class="calendar-row__name">{{ calendar.name }}</span>
+              <span class="calendar-row__meta">
+                {{ calendar.provider }} · {{ calendar.timezone }} · {{ calendar.eventCount }} events
+                @if (calendar.lastSyncedAt) {
+                  · last synced {{ calendar.lastSyncedAt | date: 'short' }}
+                }
+              </span>
+              @if (syncResults()[calendar.id]) {
+                <span class="calendar-row__sync-result">{{ syncResults()[calendar.id] }}</span>
+              }
+            </div>
+            <div class="calendar-row__actions">
+              <button type="button" mat-icon-button (click)="onSync(calendar)" [disabled]="syncingId() === calendar.id" aria-label="Sync calendar">
+                <mat-icon>sync</mat-icon>
+              </button>
+              <button type="button" mat-icon-button (click)="startEdit(calendar)" aria-label="Edit calendar">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button type="button" mat-icon-button (click)="onDelete(calendar)" aria-label="Delete calendar">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
