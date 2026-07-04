@@ -1,0 +1,67 @@
+<form class="search-filters">
+  <mat-form-field appearance="outline" class="search-filters__keyword">
+    <mat-label>Keyword</mat-label>
+    <input
+      matInput
+      [ngModel]="value().keyword"
+      name="keyword"
+      (ngModelChange)="update({ keyword: $event || undefined })"
+    />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Type</mat-label>
+    <mat-select [ngModel]="value().type" name="type" (ngModelChange)="update({ type: $event })">
+      <mat-option [value]="undefined">Any</mat-option>
+      @for (type of types; track type[0]) {
+        <mat-option [value]="type[0]">{{ type[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Mood</mat-label>
+    <mat-select [ngModel]="value().mood" name="mood" (ngModelChange)="update({ mood: $event })">
+      <mat-option [value]="undefined">Any</mat-option>
+      @for (mood of moods; track mood[0]) {
+        <mat-option [value]="mood[0]">{{ mood[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Energy</mat-label>
+    <mat-select [ngModel]="value().energy" name="energy" (ngModelChange)="update({ energy: $event })">
+      <mat-option [value]="undefined">Any</mat-option>
+      @for (energy of energies; track energy[0]) {
+        <mat-option [value]="energy[0]">{{ energy[1] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Tag</mat-label>
+    <input
+      matInput
+      [ngModel]="value().tag"
+      name="tag"
+      (ngModelChange)="update({ tag: $event || undefined })"
+    />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>From</mat-label>
+    <input matInput [matDatepicker]="fromPicker" (dateChange)="updateDate('dateFrom', $event.value)" />
+    <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+    <mat-datepicker #fromPicker />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>To</mat-label>
+    <input matInput [matDatepicker]="toPicker" (dateChange)="updateDate('dateTo', $event.value)" />
+    <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+    <mat-datepicker #toPicker />
+  </mat-form-field>
+
+  <button type="button" mat-stroked-button (click)="reset()">Clear filters</button>
+</form>

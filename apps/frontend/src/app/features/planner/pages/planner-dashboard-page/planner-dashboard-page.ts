@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import type { PlannerBlock } from '@lifeos/shared-types';
@@ -22,7 +22,7 @@ import { computePlannerSummary } from '../../utils/planner-summary';
  * View is where a user goes to look at (or edit) a day other than today. */
 @Component({
   selector: 'app-planner-dashboard-page',
-  imports: [Skeleton, EmptyState, StatCard, MatButtonModule, MatIconModule, PlannerToolbar, PlannerTimeline, FocusTimer],
+  imports: [RouterLink, Skeleton, EmptyState, StatCard, MatButtonModule, MatIconModule, PlannerToolbar, PlannerTimeline, FocusTimer],
   templateUrl: './planner-dashboard-page.html',
   styleUrl: './planner-dashboard-page.scss',
 })

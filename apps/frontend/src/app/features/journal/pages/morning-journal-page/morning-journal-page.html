@@ -1,0 +1,107 @@
+@if (loading()) {
+  <div class="morning-journal-page__loading">
+    <mat-spinner diameter="32" />
+  </div>
+} @else {
+  <form class="morning-journal-page" [formGroup]="form" (ngSubmit)="submit()">
+    <h1>Morning Journal</h1>
+    <p class="morning-journal-page__subtitle">{{ today }}</p>
+
+    @if (prompts().length > 0) {
+      <div class="morning-journal-page__prompts">
+        @for (prompt of prompts(); track prompt.id) {
+          <app-prompt-card [prompt]="prompt" />
+        }
+      </div>
+    }
+
+    <mat-card>
+      <mat-card-content class="morning-journal-page__fields">
+        <div class="morning-journal-page__row">
+          <div>
+            <p class="morning-journal-page__label">Mood</p>
+            <app-mood-selector
+              [value]="form.controls.mood.value"
+              (valueChange)="form.controls.mood.setValue($event)"
+            />
+          </div>
+          <div>
+            <p class="morning-journal-page__label">Energy</p>
+            <app-energy-meter
+              [value]="form.controls.energy.value"
+              (valueChange)="form.controls.energy.setValue($event)"
+            />
+          </div>
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Title (optional)</mat-label>
+          <input matInput formControlName="title" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Today's Intention</mat-label>
+          <textarea matInput formControlName="intention" rows="2"></textarea>
+        </mat-form-field>
+
+        <div>
+          <p class="morning-journal-page__label">Top 3 Priorities</p>
+          <app-tags-input
+            [tags]="form.controls.topPriorities.value"
+            placeholder="Add a priority…"
+            (tagsChange)="form.controls.topPriorities.setValue($event)"
+          />
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Affirmation</mat-label>
+          <textarea matInput formControlName="affirmation" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Visualization</mat-label>
+          <textarea matInput formControlName="visualization" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Expected Challenges</mat-label>
+          <textarea matInput formControlName="expectedChallenges" rows="2"></textarea>
+        </mat-form-field>
+
+        <div>
+          <p class="morning-journal-page__label">Additional Notes</p>
+          <app-rich-text-editor
+            [value]="form.controls.content.value"
+            (valueChange)="form.controls.content.setValue($event)"
+          />
+        </div>
+
+        <div>
+          <p class="morning-journal-page__label">Tags</p>
+          <app-tags-input
+            [tags]="form.controls.tags.value"
+            (tagsChange)="form.controls.tags.setValue($event)"
+          />
+        </div>
+
+        @if (goals().length > 0) {
+          <mat-form-field appearance="outline">
+            <mat-label>Related Goal (optional)</mat-label>
+            <mat-select formControlName="goalId">
+              <mat-option [value]="null">None</mat-option>
+              @for (goal of goals(); track goal.id) {
+                <mat-option [value]="goal.id">{{ goal.title }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <div class="morning-journal-page__actions">
+      <button type="submit" mat-flat-button color="primary" [disabled]="saving()">
+        {{ editingId() ? 'Update' : 'Save' }} Morning Journal
+      </button>
+    </div>
+  </form>
+}

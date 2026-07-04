@@ -1,0 +1,153 @@
+@if (loading()) {
+  <div class="evening-journal-page__loading">
+    <mat-spinner diameter="32" />
+  </div>
+} @else {
+  <form class="evening-journal-page" [formGroup]="form" (ngSubmit)="submit()">
+    <h1>Evening Journal</h1>
+    <p class="evening-journal-page__subtitle">{{ today }}</p>
+
+    @if (habitSummary() || streaksToday()) {
+      <div class="evening-journal-page__context">
+        @if (habitSummary(); as summary) {
+          <mat-card appearance="outlined" class="evening-journal-page__context-card">
+            <mat-card-content>
+              <mat-icon>checklist_rtl</mat-icon>
+              <span>{{ summary.habitsCompletedToday }} / {{ summary.totalActiveHabits }} habits completed today</span>
+            </mat-card-content>
+          </mat-card>
+        }
+        @if (streaksToday(); as streak) {
+          <mat-card appearance="outlined" class="evening-journal-page__context-card">
+            <mat-card-content>
+              <mat-icon>local_fire_department</mat-icon>
+              <span>
+                @if (streak.hasDailyHabits) {
+                  {{ streak.isTodaySuccessful ? 'Streak kept today' : 'Streak not yet secured today' }}
+                } @else {
+                  No active daily habits yet
+                }
+              </span>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    }
+
+    @if (prompts().length > 0) {
+      <div class="evening-journal-page__prompts">
+        @for (prompt of prompts(); track prompt.id) {
+          <app-prompt-card [prompt]="prompt" />
+        }
+      </div>
+    }
+
+    <mat-card>
+      <mat-card-content class="evening-journal-page__fields">
+        <div class="evening-journal-page__row">
+          <div>
+            <p class="evening-journal-page__label">Mood</p>
+            <app-mood-selector
+              [value]="form.controls.mood.value"
+              (valueChange)="form.controls.mood.setValue($event)"
+            />
+          </div>
+          <div>
+            <p class="evening-journal-page__label">Energy</p>
+            <app-energy-meter
+              [value]="form.controls.energy.value"
+              (valueChange)="form.controls.energy.setValue($event)"
+            />
+          </div>
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Title (optional)</mat-label>
+          <input matInput formControlName="title" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>What went well</mat-label>
+          <textarea matInput formControlName="wentWell" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>What didn't</mat-label>
+          <textarea matInput formControlName="wentWrong" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Lessons</mat-label>
+          <textarea matInput formControlName="lessons" rows="2"></textarea>
+        </mat-form-field>
+
+        <app-gratitude-widget
+          label="Gratitude"
+          [items]="form.controls.gratitude.value"
+          (itemsChange)="form.controls.gratitude.setValue($event)"
+        />
+
+        <app-gratitude-widget
+          label="Today's Wins"
+          placeholder="Add a win…"
+          [items]="form.controls.wins.value"
+          (itemsChange)="form.controls.wins.setValue($event)"
+        />
+
+        <mat-form-field appearance="outline">
+          <mat-label>Planner Reflection</mat-label>
+          <textarea matInput formControlName="plannerReflection" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Habit Reflection</mat-label>
+          <textarea matInput formControlName="habitReflection" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Goal Reflection</mat-label>
+          <textarea matInput formControlName="goalReflection" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Tomorrow Plan</mat-label>
+          <textarea matInput formControlName="tomorrowPlan" rows="2"></textarea>
+        </mat-form-field>
+
+        <div>
+          <p class="evening-journal-page__label">Additional Notes</p>
+          <app-rich-text-editor
+            [value]="form.controls.content.value"
+            (valueChange)="form.controls.content.setValue($event)"
+          />
+        </div>
+
+        <div>
+          <p class="evening-journal-page__label">Tags</p>
+          <app-tags-input
+            [tags]="form.controls.tags.value"
+            (tagsChange)="form.controls.tags.setValue($event)"
+          />
+        </div>
+
+        @if (goals().length > 0) {
+          <mat-form-field appearance="outline">
+            <mat-label>Related Goal (optional)</mat-label>
+            <mat-select formControlName="goalId">
+              <mat-option [value]="null">None</mat-option>
+              @for (goal of goals(); track goal.id) {
+                <mat-option [value]="goal.id">{{ goal.title }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <div class="evening-journal-page__actions">
+      <button type="submit" mat-flat-button color="primary" [disabled]="saving()">
+        {{ editingId() ? 'Update' : 'Save' }} Evening Journal
+      </button>
+    </div>
+  </form>
+}

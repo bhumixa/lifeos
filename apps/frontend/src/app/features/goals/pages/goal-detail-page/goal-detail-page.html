@@ -93,5 +93,16 @@
         </button>
       </mat-card-actions>
     </mat-card>
+
+    @if (relatedJournalEntries().length > 0) {
+      <mat-card appearance="outlined">
+        <mat-card-header>
+          <mat-card-title>Related Journal Entries</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <app-journal-timeline [entries]="relatedJournalEntries()" />
+        </mat-card-content>
+      </mat-card>
+    }
   </section>
 }

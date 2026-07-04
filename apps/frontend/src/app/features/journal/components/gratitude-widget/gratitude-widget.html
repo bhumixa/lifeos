@@ -1,0 +1,27 @@
+<div class="gratitude-widget">
+  <p class="gratitude-widget__label">{{ label() }}</p>
+  @if (items().length === 0 && readonly()) {
+    <p class="gratitude-widget__empty">Nothing recorded.</p>
+  } @else {
+    <mat-chip-set>
+      @for (item of items(); track item; let i = $index) {
+        <mat-chip [removable]="!readonly()" (removed)="remove(i)">
+          {{ item }}
+          @if (!readonly()) {
+            <mat-icon matChipRemove>cancel</mat-icon>
+          }
+        </mat-chip>
+      }
+    </mat-chip-set>
+    @if (!readonly()) {
+      <mat-form-field appearance="outline" class="gratitude-widget__input">
+        <input
+          matInput
+          #newItem
+          [placeholder]="placeholder()"
+          (keydown.enter)="add(newItem.value, newItem); $event.preventDefault()"
+        />
+      </mat-form-field>
+    }
+  }
+</div>

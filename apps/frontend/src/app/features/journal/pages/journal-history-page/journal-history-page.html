@@ -1,0 +1,48 @@
+<section class="journal-history-page">
+  <header class="journal-history-page__header">
+    <h1>Journal History</h1>
+    <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)">
+      <mat-button-toggle value="timeline">Timeline</mat-button-toggle>
+      <mat-button-toggle value="calendar">Calendar</mat-button-toggle>
+    </mat-button-toggle-group>
+  </header>
+
+  <app-statistics-card [entries]="viewMode() === 'calendar' ? calendarEntries() : entries()" />
+
+  @if (viewMode() === 'timeline') {
+    <mat-form-field appearance="outline" class="journal-history-page__filter">
+      <mat-label>Type</mat-label>
+      <mat-select [ngModel]="undefined" (ngModelChange)="onTypeChange($event)">
+        <mat-option [value]="undefined">All types</mat-option>
+        @for (option of typeOptions; track option[0]) {
+          <mat-option [value]="option[0]">{{ option[1] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (loading()) {
+      <app-skeleton height="6rem" />
+      <app-skeleton height="6rem" />
+    } @else if (isEmpty()) {
+      <app-empty-state icon="edit_note" title="No journal entries yet" message="Start with a Morning or Evening journal.">
+        <a mat-flat-button color="primary" routerLink="/journal/morning">Start Morning Journal</a>
+      </app-empty-state>
+    } @else {
+      <app-journal-timeline [entries]="entries()" />
+      <mat-paginator
+        [length]="meta().total"
+        [pageSize]="meta().pageSize"
+        [pageIndex]="meta().page - 1"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)"
+      />
+    }
+  } @else {
+    <app-journal-calendar
+      [entries]="calendarEntries()"
+      [month]="calendarMonth()"
+      (monthChange)="onMonthChange($event)"
+      (dateSelect)="onCalendarDateSelect($event)"
+    />
+  }
+</section>

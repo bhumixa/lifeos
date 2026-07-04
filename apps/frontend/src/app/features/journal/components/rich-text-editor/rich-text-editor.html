@@ -1,0 +1,31 @@
+<div class="rich-text-editor">
+  @if (previewMode()) {
+    <div class="rich-text-editor__toolbar">
+      <span class="rich-text-editor__spacer"></span>
+      <button type="button" mat-stroked-button (click)="togglePreview()">Edit</button>
+    </div>
+    <div class="rich-text-editor__preview" [innerHTML]="previewHtml()"></div>
+  } @else {
+    <div class="rich-text-editor__toolbar">
+      <button type="button" mat-icon-button [disabled]="disabled()" (click)="wrapSelection(editor, '**')">
+        <mat-icon>format_bold</mat-icon>
+      </button>
+      <button type="button" mat-icon-button [disabled]="disabled()" (click)="wrapSelection(editor, '*')">
+        <mat-icon>format_italic</mat-icon>
+      </button>
+      <button type="button" mat-icon-button [disabled]="disabled()" (click)="insertListItem(editor)">
+        <mat-icon>format_list_bulleted</mat-icon>
+      </button>
+      <span class="rich-text-editor__spacer"></span>
+      <button type="button" mat-stroked-button (click)="togglePreview()">Preview</button>
+    </div>
+    <textarea
+      #editor
+      class="rich-text-editor__textarea"
+      [ngModel]="value()"
+      [placeholder]="placeholder()"
+      [disabled]="disabled()"
+      (ngModelChange)="onInput($event)"
+    ></textarea>
+  }
+</div>

@@ -1,0 +1,66 @@
+<section class="journal-dashboard-page">
+  <header class="journal-dashboard-page__header">
+    <h1>Journal</h1>
+    <div class="journal-dashboard-page__actions">
+      <a mat-flat-button color="primary" routerLink="/journal/morning">
+        <mat-icon>wb_sunny</mat-icon>
+        Morning Journal
+      </a>
+      <a mat-flat-button color="primary" routerLink="/journal/evening">
+        <mat-icon>nights_stay</mat-icon>
+        Evening Journal
+      </a>
+      <a mat-stroked-button routerLink="/journal/search">
+        <mat-icon>search</mat-icon>
+        Search
+      </a>
+      <a mat-stroked-button routerLink="/journal/history">
+        <mat-icon>history</mat-icon>
+        History
+      </a>
+    </div>
+  </header>
+
+  <div class="journal-dashboard-page__stats">
+    @if (loading()) {
+      @for (i of [0, 1, 2, 3]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of statusStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
+  </div>
+
+  @if (latestGratitude(); as gratitude) {
+    <mat-card appearance="outlined" class="journal-dashboard-page__gratitude">
+      <mat-card-content>
+        <mat-icon>volunteer_activism</mat-icon>
+        <span>Last gratitude: {{ gratitude }}</span>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <h2>Latest Reflection</h2>
+  @if (latestEntry(); as entry) {
+    <mat-card>
+      <mat-card-content>
+        <h3>{{ headline(entry) }}</h3>
+        @if (preview(entry)) {
+          <p>{{ preview(entry) }}</p>
+        }
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <app-empty-state icon="edit_note" title="No entries yet" message="Start your first journal entry today.">
+      <a mat-flat-button color="primary" routerLink="/journal/morning">Start Morning Journal</a>
+    </app-empty-state>
+  }
+
+  <h2>Recent Entries</h2>
+  <app-journal-timeline [entries]="recentEntries()" />
+
+  <h2>Statistics</h2>
+  <app-statistics-card [entries]="recentEntries()" />
+</section>

@@ -5,10 +5,12 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { Goal, GoalMilestone } from '@lifeos/shared-types';
+import type { Goal, GoalMilestone, JournalEntry } from '@lifeos/shared-types';
 import { Badge } from '../../../../shared/components/badge/badge';
 import { ConfirmDialog, ConfirmDialogData } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
+import { JournalTimeline } from '../../../journal/components/journal-timeline/journal-timeline';
+import { JournalApiService } from '../../../journal/services/journal-api.service';
 import { GoalStatistics } from '../../components/goal-statistics/goal-statistics';
 import { GoalTimeline } from '../../components/goal-timeline/goal-timeline';
 import { MilestoneList } from '../../components/milestone-list/milestone-list';
@@ -21,6 +23,11 @@ import { PRIORITY_LABELS, PRIORITY_VARIANTS, STATUS_LABELS, STATUS_VARIANTS, dea
  * data with no other consumer, same reasoning as HabitDetailPage/TaskDetailPage. Milestone
  * toggling here goes through GoalsStore (so the Dashboard list refreshes too), but this page's own
  * `goal` signal is what actually re-renders — see toggleMilestone.
+ *
+ * Milestone 10: also loads "related journal entries" via `GET /journal/search?goalId=` — Journal
+ * doesn't participate in a Goal's own progress (no GoalTargetType reads from it), so this is a
+ * pure display-only cross-feature query, not another progress input, reusing Journal's own
+ * JournalTimeline component directly the same way Streaks reuses Habits' heatmap component.
  */
 @Component({
   selector: 'app-goal-detail-page',
@@ -33,6 +40,7 @@ import { PRIORITY_LABELS, PRIORITY_VARIANTS, STATUS_LABELS, STATUS_VARIANTS, dea
     Badge,
     GoalStatistics,
     GoalTimeline,
+    JournalTimeline,
     MilestoneList,
   ],
   templateUrl: './goal-detail-page.html',
@@ -43,6 +51,7 @@ export class GoalDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly goalApi = inject(GoalApiService);
   private readonly goalsStore = inject(GoalsStore);
+  private readonly journalApi = inject(JournalApiService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -50,6 +59,7 @@ export class GoalDetailPage implements OnInit {
   protected readonly loading = signal(true);
   protected readonly refreshingProgress = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly relatedJournalEntries = signal<JournalEntry[]>([]);
 
   protected readonly priorityLabel = computed(() => {
     const current = this.goal();
@@ -96,6 +106,10 @@ export class GoalDetailPage implements OnInit {
         this.error.set('Could not load this goal. It may not exist, or you may not have access to it.');
         this.loading.set(false);
       },
+    });
+
+    this.journalApi.search({ goalId: id, pageSize: 5 }).subscribe((result) => {
+      this.relatedJournalEntries.set(result.data);
     });
   }
 

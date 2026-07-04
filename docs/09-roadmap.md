@@ -39,7 +39,7 @@ This expands the PRD's section 13 milestone list into sequenced phases with depe
 
 ## Phase 4 — Reflection & AI Coaching (Weeks 12–15)
 
-- Journal (morning intention, evening reflection, gratitude, mood, free-form) with encryption at rest.
+- Journal (morning intention, evening reflection, gratitude, mood, free-form) with encryption at rest. **As implemented (Milestone 10):** built ahead of AI Coach, per explicit instruction, as its own standalone milestone rather than bundled with Phase 4 — see `docs/changelog.md`. Encryption at rest for `content`/`mood` was **not** implemented (a documented gap, not an oversight — see `docs/06-database-design.md`'s Milestone 10 note), so this item isn't yet fully closed.
 - AI Coach: morning briefing, evening review, personalized reminders, productivity/habit suggestions, daily affirmations, weekly insights.
 - AI Schedule Generator (wake/sleep/work-hours/goals input → generated schedule, written into `ScheduleBlock`).
 - AI cost governance: per-tier rate limiting, provider fallback (Claude ↔ OpenAI), usage logging (`AiInteraction`).

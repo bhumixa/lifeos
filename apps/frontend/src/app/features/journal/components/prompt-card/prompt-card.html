@@ -1,0 +1,11 @@
+<mat-card class="prompt-card" appearance="outlined">
+  <mat-card-content class="prompt-card__content">
+    <mat-icon class="prompt-card__icon">lightbulb</mat-icon>
+    <div>
+      <p class="prompt-card__question">{{ prompt().question }}</p>
+      @if (prompt().placeholder) {
+        <p class="prompt-card__placeholder">{{ prompt().placeholder }}</p>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

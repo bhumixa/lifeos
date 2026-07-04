@@ -6,6 +6,110 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 10 — Journal, Reflection & Life Timeline (2026-07-04)
+
+Production-ready Journal system: backend `modules/journal` (10 endpoints — list/history/search/
+prompts/getByDate, create/update/soft-delete, attachment create/delete) and a full frontend
+feature (Journal Dashboard, Morning Journal, Evening Journal, Journal Detail, Journal History,
+Search Journals; 12 components including a mood selector, energy meter, hand-rolled markdown-lite
+rich text editor, and a hand-rolled month calendar). The Dashboard's remaining placeholder-free
+gap (Journal) is now real with six widgets, and Goal Detail/Planner Dashboard each gained a small
+Journal integration point.
+
+Key decisions:
+- **`JournalEntry` is a single wide table covering all three `JournalType`s (MORNING/EVENING/
+  FREEFORM)**, not per-type tables or a JSON blob — `mood`/`energy`/`tags`/`goalId` need direct
+  indexing/filtering for `GET /journal/search`, which a per-type-table or JSON design would turn
+  into a `UNION` or per-query JSON-path expression instead of a plain `WHERE` clause. Every
+  type-specific column (Morning's `intention`/`topPriorities`/`affirmation`/`visualization`/
+  `expectedChallenges`; Evening's `wentWell`/`wentWrong`/`plannerReflection`/`habitReflection`/
+  `goalReflection`) is simply left null by whichever type doesn't use it — see the class doc on
+  `JournalEntry` in `prisma/schema.prisma`.
+- **One Morning/Evening journal per day, unlimited Freeform, is a service-layer rule (a `findFirst`
+  check + 409), not a database constraint.** The rule is conditional on `type`, which Postgres can
+  only express as a *partial* unique index — a feature Prisma's schema DSL has no declarative
+  syntax for without hand-written migration SQL, which this project's "never edit generated
+  migration files" rule weighs against. This is a documented, accepted limitation (a concurrent
+  double-submit could in principle race past the check), the same "known, documented trade-off"
+  spirit as Milestone 8/9's own accepted gaps.
+- **`goalId`/`plannerDayId` are optional, one-directional links**, following exactly the pattern
+  Task/Habit/Routine/PlannerBlock already established for `goalId` in Milestone 9 —
+  `assertGoalOwnership`/`assertPlannerDayOwnership` are raw Prisma existence checks inside
+  `JournalService`, not injected services. Journal gains **no new `GoalTargetType`**: a Goal's
+  "related journal entries" (shown on Goal Detail) is a plain `GET /journal/search?goalId=` query,
+  not a progress input — the milestone brief never asked Journal to count toward a Goal's automatic
+  progress.
+- **`JournalModule` imports no sibling module — the first fan-in-adjacent module to compose
+  entirely on the frontend instead.** Every prior module that read across boundaries (Planner,
+  Streaks, Goals) did so via backend service injection; Journal's Habits/Streaks/Planner
+  integration (Evening Journal's habit-completion-summary and current-streak panels, Planner
+  Dashboard's "open today's journal" link) is composed on the frontend by calling those features'
+  own already-exported API services directly, the same "one/two endpoint(s), several derived
+  widgets, no new backend endpoint" shape the Dashboard's own `DashboardGoalsService` already
+  establishes — just applied to feature pages instead of only the main Dashboard. This works
+  because every Journal integration is a *read*, never a *write* crossing a module boundary (unlike
+  Goals' `goalId` reverse-links, which are real FKs another module writes) — see
+  `docs/05-architecture.md`'s Milestone 10 note for the full rationale.
+- **The reflection-prompt catalog (`JournalPrompt`) is upserted from one TypeScript array
+  (`journal-prompt-definitions.ts`) at boot**, the exact pattern `AchievementsService.onModuleInit`
+  already established for the achievement catalog — 16 prompts across the three types, each with a
+  stable `code` (one field beyond the milestone's own literal `JournalPrompt` field list, added for
+  the same "stable upsert key" reason `Achievement.code` exists).
+- **`JournalService` is exported despite having no current importer** — a deliberate seam for a
+  future AI Coach module (this milestone's own "build with future AI in mind, don't implement it"
+  instruction) to read a user's journal history as coaching context, matching how Tasks/Routines/
+  Habits/Planner already exported their services ahead of Streaks/Goals actually needing them.
+- **No field-level encryption for `content`/`mood`** — a real, honestly-documented deviation from
+  `docs/06-database-design.md`'s own design principle naming those two `JournalEntry` fields for
+  encryption at rest. The milestone brief's own Database/Business Rules sections don't ask for
+  `pgcrypto` or application-level AES-GCM, and introducing either (key management, a migration
+  story for already-written plaintext rows) is a real architectural decision beyond "Only build the
+  Journal system" — flagged as a gap to close in a dedicated encryption milestone before this
+  feature holds real user data, not silently bundled into this one.
+- **`POST /journal/attachments` registers metadata for an already-hosted file, not a binary
+  upload** — no object-storage provider (S3, Cloudinary, even local-disk multer) exists anywhere
+  else in this codebase, and adding one is exactly the kind of dependency-without-justification
+  CLAUDE.md's "Things to Avoid" weighs against for this milestone. The frontend component list
+  reflects this: no dedicated "Attachment" upload component was built, matching the milestone's own
+  literal component list, which doesn't include one either.
+- **Journal Detail is addressed by `:date/:id`, not a plain `:id`** — `GET /journal/:date` already
+  returns the whole day's entries (mirroring `PlannerDayResponseDto`'s own "whole day" shape), so
+  the frontend finds the requested entry within that response rather than needing a dedicated
+  by-id backend endpoint. The one place this doesn't fully reach is Journal History's calendar
+  view, which has no dedicated "day view" page to link to (only 6 pages were in scope) — clicking a
+  calendar date jumps straight to that day's first entry instead.
+- **`features/journal/utils/journal-form.ts` factors the seven fields every `JournalType` shares**
+  (title/content/mood/energy/tags/weather/location/goalId) into one `commonEntryControls(fb)`
+  helper, so Morning/Evening/Journal Detail's own reactive forms each add only their type-specific
+  fields on top rather than repeating those seven three times.
+- **`RichTextEditor` is a hand-rolled markdown-lite textarea** (a toolbar wraps the selection in
+  `**bold**`/`*italic*` or inserts a `- ` list item; a Preview toggle renders that subset back as
+  HTML) — no third-party rich-text dependency exists anywhere in this codebase. The preview
+  HTML-escapes the raw text before applying markdown replacements, and Angular's own `[innerHTML]`
+  sanitizer is a second layer of defense on top of that, so no user-authored journal content can
+  inject markup. `JournalCalendar` is likewise hand-rolled (a month grid with mood-emoji/dot
+  markers), matching the "no charting library" convention Goals' own `GoalTimeline` already set.
+- **Verification**: 39 new backend unit tests (uniqueness rules for both MORNING and EVENING,
+  goal/planner-day linking and ownership validation, search filters, history date-range filtering,
+  soft delete, cross-user isolation, attachments, pagination) plus the existing 312 all pass (351
+  total); 28 new frontend unit tests (API service, store, display utils) plus a new
+  `DashboardJournalService` spec (4 tests) plus the existing 217 all pass (249 total). The running
+  backend was exercised directly against a live Postgres database via curl — the full
+  Morning/Evening/Freeform uniqueness matrix, search by mood/keyword/tag, history by date range,
+  Goal and PlannerDay linking (including 404s for another user's goal/planner day), attachment
+  create/delete, update, soft delete (confirmed gone from a subsequent `GET /journal/:date`), and a
+  full cross-user isolation check (second user sees zero entries and gets 404 on PATCH/DELETE for
+  the first user's data) — and the frontend was driven end-to-end with a headless Chromium session
+  (register → Dashboard's Journal stats → Journal Dashboard → Morning Journal create → Evening
+  Journal create with a Gratitude chip → Journal Detail edit → Journal History timeline and
+  calendar views → Search Journals → back to Dashboard confirming "Both done"), confirming real
+  data renders throughout with no genuine console errors (the one observed 401 is the same
+  pre-login auth-probe every prior milestone's verification also sees).
+- **Remaining work**: field-level encryption for `content`/`mood` (flagged above, not implemented
+  this milestone); a dedicated Journal Day-view page (the calendar's date-click currently jumps to
+  that day's first entry rather than a full day list, since only 6 pages were in this milestone's
+  scope); binary attachment upload (currently metadata-only registration).
+
 ## Milestone 9 — Goals & Goal Tracking (2026-07-03)
 
 Production-ready Goal Management System: backend `modules/goals` (11 endpoints — CRUD, archive/

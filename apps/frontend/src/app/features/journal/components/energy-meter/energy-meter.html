@@ -1,0 +1,15 @@
+<div class="energy-meter">
+  @for (level of levels; track level) {
+    <button
+      type="button"
+      mat-icon-button
+      class="energy-meter__bolt"
+      [class.energy-meter__bolt--filled]="filled(level)"
+      [matTooltip]="labels[level]"
+      [disabled]="disabled()"
+      (click)="select(level)"
+    >
+      <mat-icon>bolt</mat-icon>
+    </button>
+  }
+</div>

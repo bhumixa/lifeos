@@ -9,6 +9,18 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+
+    a,
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
 }
 
 h1 {

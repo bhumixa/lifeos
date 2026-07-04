@@ -1,0 +1,50 @@
+.morning-journal-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 42rem;
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: 3rem;
+  }
+
+  &__subtitle {
+    margin: -0.5rem 0 0;
+    opacity: 0.6;
+  }
+
+  &__prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  &__row {
+    display: flex;
+    gap: 2rem;
+  }
+
+  &__label {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    opacity: 0.7;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  mat-form-field {
+    width: 100%;
+  }
+}

@@ -1,0 +1,12 @@
+.energy-meter {
+  display: flex;
+  gap: 0.125rem;
+
+  &__bolt {
+    color: var(--mat-sys-outline, #9e9e9e);
+
+    &--filled {
+      color: #ff9800;
+    }
+  }
+}

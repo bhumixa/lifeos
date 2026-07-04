@@ -1,0 +1,23 @@
+<section class="search-journals-page">
+  <h1>Search Journals</h1>
+
+  <app-search-filters [value]="query()" (filtersChange)="onFiltersChange($event)" />
+
+  @if (loading()) {
+    <app-skeleton height="6rem" />
+    <app-skeleton height="6rem" />
+  } @else if (!hasSearched()) {
+    <app-empty-state icon="search" title="Search your journal" message="Use the filters above to find past entries." />
+  } @else if (results().length === 0) {
+    <app-empty-state icon="search_off" title="No entries found" message="Try different filters." />
+  } @else {
+    <app-journal-timeline [entries]="results()" />
+    <mat-paginator
+      [length]="meta().total"
+      [pageSize]="meta().pageSize"
+      [pageIndex]="meta().page - 1"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)"
+    />
+  }
+</section>

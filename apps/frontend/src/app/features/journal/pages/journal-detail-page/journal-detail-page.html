@@ -1,0 +1,202 @@
+@if (loading()) {
+  <app-skeleton height="20rem" />
+} @else if (notFound()) {
+  <app-empty-state icon="edit_note" title="Entry not found" message="This journal entry doesn't exist or was deleted." />
+} @else if (entry(); as current) {
+  <div class="journal-detail-page">
+    <header class="journal-detail-page__header">
+      <div class="journal-detail-page__title-row">
+        <mat-icon>{{ typeIcons[current.type] }}</mat-icon>
+        <h1>{{ headline() }}</h1>
+        <app-badge [label]="typeLabels[current.type]" [variant]="typeVariants[current.type]" />
+      </div>
+      <p class="journal-detail-page__date">{{ formattedDate() }}</p>
+
+      <div class="journal-detail-page__actions">
+        @if (!editing()) {
+          <button type="button" mat-stroked-button (click)="startEdit()">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button type="button" mat-stroked-button color="warn" (click)="delete()">
+            <mat-icon>delete</mat-icon>
+            Delete
+          </button>
+        }
+      </div>
+    </header>
+
+    @if (linkedGoal(); as goal) {
+      <a class="journal-detail-page__goal-link" [routerLink]="['/goals', goal.id]">
+        <mat-icon>flag</mat-icon>
+        Related goal: {{ goal.title }}
+      </a>
+    }
+
+    @if (!editing()) {
+      <mat-card>
+        <mat-card-content class="journal-detail-page__view">
+          <div class="journal-detail-page__row">
+            @if (current.mood) {
+              <span class="journal-detail-page__mood">{{ moodEmoji[current.mood] }} {{ current.mood }}</span>
+            }
+          </div>
+
+          <app-reflection-questions [entry]="current" [prompts]="prompts()" />
+
+          @if (current.topPriorities.length > 0) {
+            <app-gratitude-widget label="Top 3 Priorities" [items]="current.topPriorities" [readonly]="true" />
+          }
+          @if (current.gratitude.length > 0) {
+            <app-gratitude-widget label="Gratitude" [items]="current.gratitude" [readonly]="true" />
+          }
+          @if (current.wins.length > 0) {
+            <app-gratitude-widget label="Today's Wins" [items]="current.wins" [readonly]="true" />
+          }
+
+          @if (current.tags.length > 0) {
+            <div class="journal-detail-page__tags">
+              @for (tag of current.tags; track tag) {
+                <span class="journal-detail-page__tag">#{{ tag }}</span>
+              }
+            </div>
+          }
+
+          @if (current.plannerDayId) {
+            <a class="journal-detail-page__planner-link" [routerLink]="['/schedule/day', current.date]">
+              <mat-icon>calendar_month</mat-icon>
+              View that day's schedule
+            </a>
+          }
+        </mat-card-content>
+      </mat-card>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <mat-card>
+          <mat-card-content class="journal-detail-page__fields">
+            <div class="journal-detail-page__row">
+              <div>
+                <p class="journal-detail-page__label">Mood</p>
+                <app-mood-selector
+                  [value]="form.controls.mood.value"
+                  (valueChange)="form.controls.mood.setValue($event)"
+                />
+              </div>
+              <div>
+                <p class="journal-detail-page__label">Energy</p>
+                <app-energy-meter
+                  [value]="form.controls.energy.value"
+                  (valueChange)="form.controls.energy.setValue($event)"
+                />
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Title</mat-label>
+              <input matInput formControlName="title" />
+            </mat-form-field>
+
+            @if (current.type === 'MORNING') {
+              <mat-form-field appearance="outline">
+                <mat-label>Today's Intention</mat-label>
+                <textarea matInput formControlName="intention" rows="2"></textarea>
+              </mat-form-field>
+              <app-tags-input
+                placeholder="Add a priority…"
+                [tags]="form.controls.topPriorities.value"
+                (tagsChange)="form.controls.topPriorities.setValue($event)"
+              />
+              <mat-form-field appearance="outline">
+                <mat-label>Affirmation</mat-label>
+                <textarea matInput formControlName="affirmation" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Visualization</mat-label>
+                <textarea matInput formControlName="visualization" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Expected Challenges</mat-label>
+                <textarea matInput formControlName="expectedChallenges" rows="2"></textarea>
+              </mat-form-field>
+            }
+
+            @if (current.type === 'EVENING') {
+              <mat-form-field appearance="outline">
+                <mat-label>What went well</mat-label>
+                <textarea matInput formControlName="wentWell" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>What didn't</mat-label>
+                <textarea matInput formControlName="wentWrong" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Lessons</mat-label>
+                <textarea matInput formControlName="lessons" rows="2"></textarea>
+              </mat-form-field>
+              <app-gratitude-widget
+                label="Gratitude"
+                [items]="form.controls.gratitude.value"
+                (itemsChange)="form.controls.gratitude.setValue($event)"
+              />
+              <app-gratitude-widget
+                label="Today's Wins"
+                placeholder="Add a win…"
+                [items]="form.controls.wins.value"
+                (itemsChange)="form.controls.wins.setValue($event)"
+              />
+              <mat-form-field appearance="outline">
+                <mat-label>Planner Reflection</mat-label>
+                <textarea matInput formControlName="plannerReflection" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Habit Reflection</mat-label>
+                <textarea matInput formControlName="habitReflection" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Goal Reflection</mat-label>
+                <textarea matInput formControlName="goalReflection" rows="2"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Tomorrow Plan</mat-label>
+                <textarea matInput formControlName="tomorrowPlan" rows="2"></textarea>
+              </mat-form-field>
+            }
+
+            <div>
+              <p class="journal-detail-page__label">Content</p>
+              <app-rich-text-editor
+                [value]="form.controls.content.value"
+                (valueChange)="form.controls.content.setValue($event)"
+              />
+            </div>
+
+            <div>
+              <p class="journal-detail-page__label">Tags</p>
+              <app-tags-input
+                [tags]="form.controls.tags.value"
+                (tagsChange)="form.controls.tags.setValue($event)"
+              />
+            </div>
+
+            @if (goals().length > 0) {
+              <mat-form-field appearance="outline">
+                <mat-label>Related Goal (optional)</mat-label>
+                <mat-select formControlName="goalId">
+                  <mat-option [value]="null">None</mat-option>
+                  @for (goal of goals(); track goal.id) {
+                    <mat-option [value]="goal.id">{{ goal.title }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          </mat-card-content>
+        </mat-card>
+
+        <div class="journal-detail-page__form-actions">
+          <button type="button" mat-stroked-button (click)="cancelEdit()">Cancel</button>
+          <button type="submit" mat-flat-button color="primary" [disabled]="saving()">Save changes</button>
+        </div>
+      </form>
+    }
+  </div>
+}

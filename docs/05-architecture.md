@@ -168,6 +168,40 @@ potentially lagging behind source data until the next explicit refresh. A future
 Goals to stay live without an explicit refresh call is the natural next place to introduce
 `EventEmitter2`, exactly as this doc has anticipated since Milestone 7.
 
+**Milestone 10 (Journal) is the first module with zero sibling-module imports**, despite reading
+from Habits/Streaks/Planner and linking to Goals — every prior fan-in module (Planner, Streaks,
+Goals) imports the services it composes; Journal instead composes them **entirely on the
+frontend**. The Evening Journal page calls `GET /habits/summary` and `GET /streaks/today` directly
+via those features' own existing `HabitApiService`/`StreaksApiService` (already exported for their
+own feature pages), the Planner Dashboard links straight to `/journal`, and Goal Detail's "related
+journal entries" panel calls `GET /journal/search?goalId=` via `JournalApiService`. This is the
+same "one/two endpoint(s), several derived widgets, no new dashboard-specific endpoint" shape the
+Dashboard's own `DashboardGoalsService`/`DashboardRoutineSummaryService` already establish —
+applied here to feature *pages* composing each other's APIs, not just the main Dashboard. It works
+specifically because none of Journal's integrations need a *write* to cross a module boundary
+(unlike Goals' `goalId` reverse-links, which are real FKs written by Task/Habit/Routine/PlannerBlock
+themselves) — Journal only ever *reads* other modules' data or is *read by* them, so there's no
+ownership-validation or circular-import concern to solve with backend composition at all. `goalId`/
+`plannerDayId` on `JournalEntry` itself follow the established pattern exactly:
+`assertGoalOwnership`/`assertPlannerDayOwnership` are raw Prisma existence checks inside
+`JournalService`, not injected services, the same "ownership check without owning the relationship"
+precedent Milestone 9 already set.
+
+**`JournalModule` exports `JournalService`** despite having no current importer — a deliberate,
+forward-looking seam for a future AI Coach module (the roadmap's own Phase 4, and this milestone's
+explicit "build with future AI in mind, don't implement it" instruction) to inject and read a
+user's journal history as coaching context, the same "export for reuse" convention Tasks/Routines/
+Habits/Planner already established before anything actually imported some of them.
+
+**No new `GoalTargetType` was added for Journal.** The milestone brief doesn't ask Journal entries
+to count toward a Goal's automatic progress, so `JournalEntry.goalId` is display-only (Goal Detail
+lists related entries) — symmetric with, but functionally simpler than, the four-source fan-in
+Goals already has for Task/Habit/Routine/Planner.
+
+**No field-level encryption for `JournalEntry.content`/`mood`** — flagged as a real, honest
+deviation from `docs/06-database-design.md`'s own design principle naming those two fields for
+encryption at rest, not an oversight. See that doc's Milestone 10 note for the full rationale.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:

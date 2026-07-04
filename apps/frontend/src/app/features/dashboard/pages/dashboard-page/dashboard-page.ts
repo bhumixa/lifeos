@@ -14,6 +14,7 @@ import { RecentActivity } from '../../components/recent-activity/recent-activity
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
 import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
+import { DashboardJournalService } from '../../services/dashboard-journal.service';
 import { DashboardPlannerService } from '../../services/dashboard-planner.service';
 import { DashboardStreaksService } from '../../services/dashboard-streaks.service';
 import { DashboardTaskStatsService } from '../../services/dashboard-task-stats.service';
@@ -45,6 +46,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardPlanner = inject(DashboardPlannerService);
   private readonly dashboardStreaks = inject(DashboardStreaksService);
   private readonly dashboardGoals = inject(DashboardGoalsService);
+  private readonly dashboardJournal = inject(DashboardJournalService);
 
   protected readonly user = this.authService.user;
 
@@ -79,6 +81,16 @@ export class DashboardPage implements OnInit {
     { label: "Today's Goal Progress", value: '—', icon: 'trending_up' },
     { label: 'Goal Completion %', value: '—', icon: 'percent' },
     { label: 'Nearest Goal Deadline', value: '—', icon: 'event' },
+  ]);
+
+  protected readonly journalStatsLoading = signal(true);
+  protected readonly journalStats = signal<DashboardStat[]>([
+    { label: "Today's Journal Status", value: '—', icon: 'edit_note' },
+    { label: 'Morning Reflection', value: '—', icon: 'wb_sunny' },
+    { label: 'Evening Reflection', value: '—', icon: 'nights_stay' },
+    { label: 'Current Mood', value: '—', icon: 'mood' },
+    { label: 'Last Gratitude', value: '—', icon: 'volunteer_activism' },
+    { label: 'Latest Reflection', value: '—', icon: 'auto_stories' },
   ]);
 
   protected readonly plannerLoading = signal(true);
@@ -196,6 +208,26 @@ export class DashboardPage implements OnInit {
         this.goalsStatsLoading.set(false);
       },
       error: () => this.goalsStatsLoading.set(false),
+    });
+
+    this.dashboardJournal.load().subscribe({
+      next: (summary) => {
+        const doneCount = Number(summary.hasMorningToday) + Number(summary.hasEveningToday);
+        this.journalStats.set([
+          {
+            label: "Today's Journal Status",
+            value: doneCount === 2 ? 'Both done' : doneCount === 1 ? '1 of 2 done' : 'Not started',
+            icon: 'edit_note',
+          },
+          { label: 'Morning Reflection', value: summary.hasMorningToday ? 'Done' : 'Not yet', icon: 'wb_sunny' },
+          { label: 'Evening Reflection', value: summary.hasEveningToday ? 'Done' : 'Not yet', icon: 'nights_stay' },
+          { label: 'Current Mood', value: summary.currentMood ?? '—', icon: 'mood' },
+          { label: 'Last Gratitude', value: summary.lastGratitude ?? '—', icon: 'volunteer_activism' },
+          { label: 'Latest Reflection', value: summary.latestReflection?.headline ?? '—', icon: 'auto_stories' },
+        ]);
+        this.journalStatsLoading.set(false);
+      },
+      error: () => this.journalStatsLoading.set(false),
     });
   }
 

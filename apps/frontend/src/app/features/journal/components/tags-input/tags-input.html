@@ -1,0 +1,22 @@
+<div class="tags-input">
+  <mat-chip-set>
+    @for (tag of tags(); track tag) {
+      <mat-chip [removable]="!disabled()" (removed)="remove(tag)">
+        #{{ tag }}
+        @if (!disabled()) {
+          <mat-icon matChipRemove>cancel</mat-icon>
+        }
+      </mat-chip>
+    }
+  </mat-chip-set>
+  @if (!disabled()) {
+    <mat-form-field appearance="outline" class="tags-input__field">
+      <input
+        matInput
+        #newTag
+        [placeholder]="placeholder()"
+        (keydown.enter)="add(newTag.value, newTag); $event.preventDefault()"
+      />
+    </mat-form-field>
+  }
+</div>

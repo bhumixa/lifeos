@@ -369,6 +369,88 @@ GoalMilestone
   completedAt       timestamp, nullable
 ```
 
+> **As implemented (Milestone 10 — Journal, Reflection & Life Timeline):** the actual
+> `JournalEntry` model follows that milestone's own field list — a deliberately wide single table
+> covering all three `JournalType` variants (MORNING/EVENING/FREEFORM) with nullable type-specific
+> columns — rather than this doc's original four-type sketch:
+>
+> ```
+> JournalEntry
+>   id                uuid PK
+>   userId            FK -> User
+>   date              date   -- in the user's own timezone, same convention as PlannerDay.date
+>   type              enum(MORNING, EVENING, FREEFORM)
+>   title             string, nullable
+>   content            string, nullable
+>   mood              enum(VERY_BAD, BAD, NEUTRAL, GOOD, EXCELLENT), nullable
+>   energy            enum(VERY_LOW, LOW, NORMAL, HIGH, VERY_HIGH), nullable
+>   productivity       int, nullable   -- self-rated 1-5
+>   gratitude         string[]
+>   wins              string[]
+>   lessons           string, nullable
+>   tomorrowPlan      string, nullable
+>   tags              string[]
+>   weather           string, nullable
+>   location          string, nullable
+>   -- Morning-only:
+>   intention           string, nullable
+>   topPriorities       string[]
+>   affirmation         string, nullable
+>   visualization       string, nullable
+>   expectedChallenges  string, nullable
+>   -- Evening-only:
+>   wentWell           string, nullable
+>   wentWrong          string, nullable
+>   plannerReflection  string, nullable
+>   habitReflection    string, nullable
+>   goalReflection     string, nullable
+>   -- Milestone 9-style optional cross-links:
+>   goalId             FK -> Goal, nullable, onDelete: SetNull
+>   plannerDayId       FK -> PlannerDay, nullable, onDelete: SetNull
+>   createdAt / updatedAt / deletedAt
+> ```
+>
+> - **One wide table, not four per-type tables or a JSON blob** — a morning/evening reflection and
+>   a freeform diary entry share the same identity/date/mood/energy/tags/attachments shape and the
+>   same list/search/history endpoints; `mood`/`energy`/`tags`/`goalId` need to be indexed and
+>   filtered on directly (`GET /journal/search`), which JSON would make a per-query JSON-path
+>   expression instead of a plain `WHERE` clause — the same reasoning this doc's own note on Routine
+>   already gives for choosing relational columns over `ScheduleTemplate.blocksJson`.
+> - **`type` is `MORNING/EVENING/FREEFORM`**, not this doc's original four-value enum — the
+>   milestone brief's own Enums section defines exactly these three, with Gratitude folded into
+>   Evening's own `gratitude` field rather than being a fourth top-level type.
+> - **No field-level encryption is implemented** for `content`/`mood`, despite this doc's own
+>   design principle naming `JournalEntry.content`/`mood` explicitly for encryption at rest, and
+>   despite `docs/03-assumptions.md`/`docs/04-improvements.md` flagging journal content as
+>   especially sensitive. The Milestone 10 brief's own Database/Backend/Business Rules sections
+>   don't ask for `pgcrypto` or application-level AES-GCM, and introducing either is a real
+>   architectural decision (key management, a migration story for already-written plaintext rows)
+>   beyond "Only build the Journal system." This is a genuine, honestly-documented gap, not an
+>   oversight — the natural place to add it is a dedicated encryption-at-rest milestone before this
+>   feature is exposed to real user data, not a silent extra bundled into this one.
+> - **One-morning/one-evening-per-day is a service-layer rule, not a DB constraint** — see
+>   `docs/API.md`'s Journal section for why a partial unique index isn't used.
+> - **`goalId`/`plannerDayId`** are additive, optional FKs, `onDelete: SetNull` — the same pattern
+>   Task/Habit/Routine/PlannerBlock already established for `goalId` in Milestone 9. Journal gains
+>   no new `GoalTargetType`; a Goal's "related journal entries" is a display-only query, not a
+>   progress input.
+> - **Soft delete**, per the milestone brief's own "Journal is never deleted automatically" rule —
+>   the same principle this doc already applies to Task/Habit/Goal.
+> - **`JournalAttachment`** (`id`, `journalId` FK, `fileName`, `fileType`, `fileSize`, `url`,
+>   `createdAt`) is metadata for an already-hosted file, not binary storage — no object-storage
+>   provider (S3, Cloudinary, or even local-disk multer) exists anywhere else in this codebase, and
+>   introducing one is out of scope for this milestone. Hard delete, like `RoutineStep`/
+>   `GoalMilestone` — disposable metadata reached only through its parent.
+> - **`JournalPrompt`** (`id`, `code` — one field beyond the milestone's own literal list, added
+>   for a stable upsert key exactly like `Achievement.code` — `type`, `question`, `placeholder`,
+>   `order`, `active`, `createdAt`) is a data-driven catalog upserted from one TypeScript array at
+>   boot, the same pattern this doc's note on `Achievement` already established for Milestone 8.
+> - **Indexes**: `(userId, date)` and `(userId, type)` on `JournalEntry` (the dominant "this user's
+>   entries in a date range / of a type" query pattern this doc's own Indexing Notes section
+>   already anticipates for `JournalEntry`), plus `(userId, date, type)` backing the one-per-day
+>   uniqueness check, `(goalId)`, and `(plannerDayId)`. `(journalId)` on `JournalAttachment`;
+>   `(type, order)` on `JournalPrompt`.
+
 > **As implemented (Milestone 9 — Goals & Goal Tracking):** the actual `Goal`/`GoalMilestone`
 > models follow that milestone's given field list rather than the shape sketched above:
 >

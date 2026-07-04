@@ -1,0 +1,10 @@
+<div class="reflection-questions">
+  @for (item of answered(); track item.question) {
+    <div class="reflection-questions__item">
+      <p class="reflection-questions__question">{{ item.question }}</p>
+      <p class="reflection-questions__answer">{{ item.answer }}</p>
+    </div>
+  } @empty {
+    <p class="reflection-questions__empty">No reflections recorded for this entry.</p>
+  }
+</div>

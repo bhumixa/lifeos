@@ -1,0 +1,20 @@
+<mat-card class="statistics-card">
+  <mat-card-content class="statistics-card__grid">
+    <div class="statistics-card__stat">
+      <span class="statistics-card__value">{{ totalEntries() }}</span>
+      <span class="statistics-card__label">Total Entries</span>
+    </div>
+    <div class="statistics-card__stat">
+      <span class="statistics-card__value">{{ entriesThisWeek() }}</span>
+      <span class="statistics-card__label">This Week</span>
+    </div>
+    <div class="statistics-card__stat">
+      <span class="statistics-card__value">{{ mostCommonMood()?.emoji ?? '—' }}</span>
+      <span class="statistics-card__label">{{ mostCommonMood()?.label ?? 'Most Common Mood' }}</span>
+    </div>
+    <div class="statistics-card__stat">
+      <span class="statistics-card__value">{{ averageProductivity() ?? '—' }}</span>
+      <span class="statistics-card__label">Avg. Productivity</span>
+    </div>
+  </mat-card-content>
+</mat-card>

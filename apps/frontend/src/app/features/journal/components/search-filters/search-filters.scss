@@ -1,0 +1,14 @@
+.search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+
+  mat-form-field {
+    width: 10rem;
+  }
+
+  &__keyword {
+    width: 16rem !important;
+  }
+}

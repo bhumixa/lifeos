@@ -1,0 +1,23 @@
+.prompt-card {
+  &__content {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  &__icon {
+    color: #ff9800;
+  }
+
+  &__question {
+    margin: 0;
+    font-weight: 500;
+  }
+
+  &__placeholder {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    opacity: 0.6;
+    font-style: italic;
+  }
+}

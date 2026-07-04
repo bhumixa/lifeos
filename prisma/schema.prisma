@@ -28,6 +28,16 @@
 // explicitly, and CUSTOM goals need somewhere for a manual value to live) — see the comment on
 // Goal for the read/recompute contract that keeps it from drifting out of sync with the source
 // data it's derived from for the four automatic target types.
+// Milestone 10 (Journal, Reflection & Life Timeline) adds JournalEntry/JournalPrompt/
+// JournalAttachment. JournalEntry is deliberately a single wide table covering all three
+// JournalType variants (MORNING/EVENING/FREEFORM) with nullable type-specific columns, rather than
+// per-type tables — see the comment on JournalEntry for why. It carries the same optional `goalId`
+// pattern Task/Habit/Routine/PlannerBlock already established (Milestone 9) plus a new, symmetric
+// optional `plannerDayId`, so an entry can reference the day it reflects on. JournalService also
+// exports its service (like Tasks/Routines/Habits/Planner already do) purely so a future AI Coach
+// module can import JournalModule and read a user's journal history as coaching context — no AI
+// code is added in this milestone, only the same "export for reuse" seam every prior
+// service-composing milestone has used.
 
 generator client {
   provider = "prisma-client-js"
@@ -75,6 +85,7 @@ model User {
   userAchievements UserAchievement[]
   freezeDays       FreezeDay[]
   goals            Goal[]
+  journalEntries   JournalEntry[]
 
   @@map("users")
 }
@@ -294,7 +305,11 @@ model PlannerDay {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  blocks PlannerBlock[]
+  blocks         PlannerBlock[]
+  // Milestone 10: entries that reflect on this specific day (e.g. an Evening Journal's Planner
+  // Reflection). Optional and one-directional — PlannerDay has no reciprocal knowledge of, or
+  // dependency on, Journal; see the comment on JournalEntry.
+  journalEntries JournalEntry[]
 
   // A user has at most one PlannerDay per date — GET /planner/today and GET /planner/:date
   // find-or-create against this constraint rather than requiring a separate provisioning step.
@@ -501,11 +516,12 @@ model Goal {
   // explicitly, same as Task/Habit.
   deletedAt DateTime?
 
-  milestones    GoalMilestone[]
-  tasks         Task[]
-  habits        Habit[]
-  routines      Routine[]
-  plannerBlocks PlannerBlock[]
+  milestones     GoalMilestone[]
+  tasks          Task[]
+  habits         Habit[]
+  routines       Routine[]
+  plannerBlocks  PlannerBlock[]
+  journalEntries JournalEntry[]
 
   @@index([userId, status])
   @@index([userId, archived])
@@ -538,4 +554,195 @@ model GoalMilestone {
 
   @@index([goalId, order])
   @@map("goal_milestones")
+}
+
+enum JournalType {
+  MORNING
+  EVENING
+  FREEFORM
+}
+
+enum Mood {
+  VERY_BAD
+  BAD
+  NEUTRAL
+  GOOD
+  EXCELLENT
+}
+
+enum Energy {
+  VERY_LOW
+  LOW
+  NORMAL
+  HIGH
+  VERY_HIGH
+}
+
+// The user's personal timeline — a deliberately single, wide table covering all three JournalType
+// variants (MORNING/EVENING/FREEFORM) with nullable type-specific columns, rather than three
+// per-type tables or one `content` JSON blob. A morning/evening reflection and a freeform diary
+// entry share the same identity/date/mood/energy/tags/attachments shape and the same list/search/
+// history endpoints; splitting them into separate tables would mean three parallel CRUD paths and
+// a `UNION` for any query spanning types (search, history, "related entries for this Goal"), for
+// fields that are otherwise just... more nullable columns on one row. JSON was rejected for the
+// same reason docs/06-database-design.md's note on Routine gives for choosing relational columns
+// over `ScheduleTemplate.blocksJson`: `mood`/`energy`/`tags`/`goalId` need to be indexed and
+// filtered on directly (GET /journal/search), which a JSON blob would make either impossible or a
+// per-query JSON-path expression instead of a plain WHERE clause.
+//
+// Field groups, matching the milestone brief's own three sections:
+// - Core (any type): title/content/mood/energy/productivity/tags/weather/location, plus the
+//   optional goalId/plannerDayId cross-links.
+// - Morning-only: intention/topPriorities/affirmation/visualization/expectedChallenges.
+// - Evening-only: wentWell/wentWrong/lessons/gratitude/wins/plannerReflection/habitReflection/
+//   goalReflection/tomorrowPlan.
+// Every type-specific column is nullable and simply left unset by whichever type doesn't use it —
+// there's no CHECK constraint tying a column to a specific `type` (the same trust-the-service-layer
+// stance the rest of this schema takes for cross-field rules it can express more clearly in
+// TypeScript than in SQL).
+//
+// `productivity` is a plain nullable Int (JournalEntryService validates 1-5), not a new enum: the
+// milestone brief's Enums section defines only JournalType/Mood/Energy, so — matching the exact
+// reasoning `docs/06-database-design.md`'s note on Goal gives for `category` staying free-text
+// rather than getting a `GoalCategory` enum — an undefined enum isn't invented for it.
+//
+// Business rule ("one Morning Journal per day, one Evening Journal per day, unlimited Freeform")
+// is enforced in JournalService (a friendly 409 via a `findFirst` check before create), not a
+// database constraint: the rule is conditional on `type` (blocks MORNING/EVENING duplicates but not
+// FREEFORM ones), which Postgres can only express as a *partial* unique index — a feature Prisma's
+// schema DSL has no declarative syntax for without hand-written SQL in a migration file, which
+// CLAUDE.md's "Never edit generated migration files" rule weighs against here. This is a documented,
+// accepted limitation (a concurrent double-submit could in principle race past the service-layer
+// check) — the same "known, documented trade-off" spirit as Milestone 8/9's own accepted gaps —
+// rather than one worked around by hand-editing migration SQL. `@@index([userId, date, type])`
+// still backs that check's query efficiently even without a uniqueness guarantee at the DB level.
+//
+// Soft delete (`deletedAt`), per the milestone brief's own "Journal is never deleted automatically"
+// rule — the same principle docs/06-database-design.md already applies to Task/Habit/Goal.
+//
+// `goalId`/`plannerDayId` are optional, one-directional FKs (`onDelete: SetNull`, mirroring exactly
+// how Task/Habit/Routine/PlannerBlock already point at Goal) — JournalModule validates ownership of
+// both via a raw Prisma existence check (`assertGoalOwnership`/`assertPlannerDayOwnership`), not by
+// injecting GoalsService/PlannerService, since neither of those modules imports JournalModule (no
+// circularity risk either direction, unlike Goals' own fan-in), and every other module in this
+// codebase already uses the raw-existence-check form for exactly this kind of optional
+// cross-reference. Journal does not gain a new GoalTargetType (e.g. a hypothetical
+// `JOURNAL_COUNT`) — the milestone brief doesn't ask for one, so a Goal's "related journal entries"
+// (shown on Goal Detail) is a plain `GET /journal/search?goalId=` frontend query, not a progress
+// input.
+model JournalEntry {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Date-only, like HabitLog.date/PlannerDay.date — the calendar day this entry belongs to, in
+  // the user's own timezone (JournalService resolves "today" the same way PlannerService does,
+  // reusing planner/utils/timezone.util.ts directly — see the comment on JournalService).
+  date DateTime    @db.Date
+  type JournalType
+
+  title        String?
+  content      String?
+  mood         Mood?
+  energy       Energy?
+  // 1-5 self-rated scale (JournalEntryService validates the range) — see the comment above for
+  // why this is a plain Int rather than a new enum.
+  productivity Int?
+  gratitude    String[] @default([])
+  wins         String[] @default([])
+  lessons      String?
+  tomorrowPlan String?
+  tags         String[] @default([])
+  weather      String?
+  location     String?
+
+  // Morning-only fields — left null for EVENING/FREEFORM entries.
+  intention          String?
+  topPriorities      String[] @default([])
+  affirmation        String?
+  visualization      String?
+  expectedChallenges String?
+
+  // Evening-only fields — left null for MORNING/FREEFORM entries.
+  wentWell          String?
+  wentWrong         String?
+  plannerReflection String?
+  habitReflection   String?
+  goalReflection    String?
+
+  // Milestone 10: optional links back to a Goal/PlannerDay this entry reflects on — see the class
+  // doc above for the ownership-validation and "no new GoalTargetType" rationale.
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  plannerDayId String?
+  plannerDay   PlannerDay? @relation(fields: [plannerDayId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete — the milestone brief's own "Journal is never deleted automatically" rule.
+  deletedAt DateTime?
+
+  attachments JournalAttachment[]
+
+  @@index([userId, date])
+  @@index([userId, date, type])
+  @@index([userId, type])
+  @@index([goalId])
+  @@index([plannerDayId])
+  @@map("journal_entries")
+}
+
+// Metadata for an already-hosted file (image, voice memo, etc.) attached to a journal entry — not
+// binary storage. No object-storage provider (S3, Cloudinary, or even a local-disk multer setup)
+// exists anywhere else in this codebase yet, and introducing one is exactly the kind of "add a
+// dependency without justification" / scope-creep decision CLAUDE.md's "Things to Avoid" and this
+// milestone's own "Only build the Journal system" instruction weigh against. `POST
+// /journal/attachments` therefore registers metadata for a file the client already hosted
+// elsewhere (`fileName`/`fileType`/`fileSize`/`url` are exactly the fields the milestone brief
+// lists for this model) rather than accepting a multipart upload — the same reasoning that kept
+// this milestone's frontend component list free of a dedicated "Attachment" component (see
+// docs/07-folder-structure.md's note on features/journal/). Hard delete, like RoutineStep/
+// GoalMilestone: disposable metadata reached only through its parent JournalEntry, not named in
+// docs/06-database-design.md's soft-delete list.
+model JournalAttachment {
+  id        String       @id @default(uuid())
+  journalId String
+  journal   JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  fileName String
+  fileType String
+  fileSize Int
+  url      String
+
+  createdAt DateTime @default(now())
+
+  @@index([journalId])
+  @@map("journal_attachments")
+}
+
+// The reflection-prompt catalog — data-driven, following the exact same pattern
+// docs/06-database-design.md's note on Achievement already established for Milestone 8's
+// achievement catalog: rows are upserted from one TypeScript array
+// (modules/journal/utils/journal-prompt-definitions.ts) at boot (JournalService.onModuleInit)
+// rather than a separate `prisma db seed` step, so there's one source of truth instead of two that
+// could drift. Not user-scoped — every user sees the same catalog, the same way Achievement's
+// catalog isn't per-user (only the *unlock*, `UserAchievement`, is).
+//
+// `code` is one field beyond the milestone brief's own literal JournalPrompt field list — added
+// for exactly the reason `Achievement.code` exists: `onModuleInit`'s upsert needs a stable,
+// human-assigned identity to key on across restarts (a raw auto-generated `id` can't be
+// hand-written into the definitions array ahead of the row existing).
+model JournalPrompt {
+  id          String      @id @default(uuid())
+  code        String      @unique
+  type        JournalType
+  question    String
+  placeholder String?
+  order       Int
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  @@index([type, order])
+  @@map("journal_prompts")
 }

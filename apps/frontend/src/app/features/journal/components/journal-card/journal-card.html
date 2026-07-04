@@ -1,0 +1,23 @@
+<mat-card class="journal-card" [routerLink]="['/journal', entry().date, entry().id]">
+  <mat-card-content class="journal-card__content">
+    <div class="journal-card__header">
+      <mat-icon class="journal-card__type-icon">{{ typeIcons[entry().type] }}</mat-icon>
+      <span class="journal-card__date">{{ formattedDate() }}</span>
+      <app-badge [label]="typeLabels[entry().type]" [variant]="typeVariants[entry().type]" />
+      @if (entry().mood) {
+        <span class="journal-card__mood">{{ moodEmoji[entry().mood!] }}</span>
+      }
+    </div>
+    <h3 class="journal-card__headline">{{ headline() }}</h3>
+    @if (preview()) {
+      <p class="journal-card__preview">{{ preview() }}</p>
+    }
+    @if (entry().tags.length > 0) {
+      <div class="journal-card__tags">
+        @for (tag of entry().tags; track tag) {
+          <span class="journal-card__tag">#{{ tag }}</span>
+        }
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

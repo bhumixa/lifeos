@@ -4,10 +4,16 @@
       <h1>Today's Plan</h1>
       <p class="subtitle">Tasks, routines, and habits — all in one schedule.</p>
     </div>
-    <button mat-stroked-button (click)="openDayView()">
-      <mat-icon>calendar_view_day</mat-icon>
-      Open Day View
-    </button>
+    <div class="header__actions">
+      <a mat-stroked-button routerLink="/journal">
+        <mat-icon>edit_note</mat-icon>
+        Open Today's Journal
+      </a>
+      <button mat-stroked-button (click)="openDayView()">
+        <mat-icon>calendar_view_day</mat-icon>
+        Open Day View
+      </button>
+    </div>
   </div>
 
   @if (loading()) {

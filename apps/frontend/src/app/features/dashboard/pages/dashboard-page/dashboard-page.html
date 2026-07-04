@@ -50,6 +50,15 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
+    @if (journalStatsLoading()) {
+      @for (i of [0, 1, 2, 3, 4, 5]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of journalStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
   </div>
 
   <div class="dashboard__panels">

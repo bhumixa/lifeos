@@ -8,7 +8,9 @@ import { authGuard } from './core/auth/auth.guard';
  * (Milestone 6), the Daily Planner (Milestone 7, mounted at the pre-existing `schedule` path
  * rather than a new `planner` one — that nav item already existed pointing at this placeholder),
  * Streaks (Milestone 8) and Goals (Milestone 9) each added a new nav item — no pre-existing
- * placeholder pointed at `/streaks` or `/goals` to reuse.
+ * placeholder pointed at `/streaks` or `/goals` to reuse. Journal (Milestone 10) reused the
+ * `Journal` nav item that was already in Milestone 3's original list (like Habits before it), so
+ * no nav change was needed — just replacing its placeholder with a real `loadChildren`.
  * Each of these has a real feature module, lazy-loaded via their own `*Routes`.
  * `data.breadcrumb`/`data.icon` feed both the sidenav (layout/sidenav/nav-items.ts) and
  * BreadcrumbService — keep labels in sync with nav-items.ts.
@@ -55,9 +57,7 @@ export const routes: Routes = [
       },
       {
         path: 'journal',
-        data: { breadcrumb: 'Journal', icon: 'book' },
-        loadComponent: () =>
-          import('./shared/components/feature-placeholder/feature-placeholder').then((m) => m.FeaturePlaceholder),
+        loadChildren: () => import('./features/journal/journal.routes').then((m) => m.journalRoutes),
       },
       {
         path: 'ai-coach',

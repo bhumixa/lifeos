@@ -1,0 +1,41 @@
+<div class="journal-calendar">
+  <div class="journal-calendar__header">
+    <button type="button" mat-icon-button (click)="previousMonth()">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span class="journal-calendar__label">{{ monthLabel() }}</span>
+    <button type="button" mat-icon-button (click)="nextMonth()">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+
+  <div class="journal-calendar__weekday-row">
+    @for (day of weekdayLabels; track $index) {
+      <span class="journal-calendar__weekday">{{ day }}</span>
+    }
+  </div>
+
+  @for (week of weeks(); track $index) {
+    <div class="journal-calendar__week">
+      @for (cell of week; track cell.date ?? $index) {
+        <button
+          type="button"
+          class="journal-calendar__cell"
+          [class.journal-calendar__cell--empty]="!cell.date"
+          [class.journal-calendar__cell--has-entry]="cell.entries.length > 0"
+          [disabled]="!cell.date"
+          (click)="selectDate(cell)"
+        >
+          @if (cell.dayOfMonth) {
+            <span class="journal-calendar__day">{{ cell.dayOfMonth }}</span>
+            @if (primaryMood(cell)) {
+              <span class="journal-calendar__mood">{{ primaryMood(cell) }}</span>
+            } @else if (cell.entries.length > 0) {
+              <span class="journal-calendar__dot"></span>
+            }
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

@@ -1,0 +1,12 @@
+<div class="journal-timeline">
+  @for (group of groups(); track group.date) {
+    <div class="journal-timeline__group">
+      <h3 class="journal-timeline__date">{{ group.label }}</h3>
+      <div class="journal-timeline__entries">
+        @for (entry of group.entries; track entry.id) {
+          <app-journal-card [entry]="entry" />
+        }
+      </div>
+    </div>
+  }
+</div>

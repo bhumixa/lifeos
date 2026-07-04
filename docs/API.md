@@ -163,10 +163,52 @@ four "contributes automatically" sources, via that source's own `goalId`:
 | `FOCUS_TIME` | Sum of `duration` (minutes) across this user's completed `PlannerBlock`s with `goalId` = this goal directly (independent of `type`/`referenceId`). |
 | `CUSTOM` | Nothing — `currentValue` only changes via `PATCH /goals/:id`. |
 
+## Journal (Milestone 10)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/journal` | Paginated list — filter by `type`, sort by `date`/`createdAt`. The plain "browse everything" listing; see `/journal/search` for the richer filter set. |
+| GET | `/journal/history` | Paginated timeline — filter by `type`/`dateFrom`/`dateTo`, newest first. Same shape as `GET /habits/history`. |
+| GET | `/journal/search` | Rich filter search — `keyword` (title/content, case-insensitive), `mood`, `energy`, `tag`, `goalId`, `type`, `dateFrom`/`dateTo`, sort. |
+| GET | `/journal/prompts` | The reflection-prompt catalog, optionally filtered by `type`. Data-driven — see the note below. |
+| GET | `/journal/:date` | Every entry for one calendar date (`"YYYY-MM-DD"`) — 0-2 MORNING/EVENING plus any number of FREEFORM. Never auto-creates anything; an empty `entries` array is valid. |
+| POST | `/journal` | Create an entry. `date` defaults to today in the user's own timezone. MORNING/EVENING are limited to one per calendar day (409 on a second attempt); FREEFORM has no limit. |
+| PATCH | `/journal/:id` | Update an entry. `type`/`date` can't change — create a new entry instead. |
+| DELETE | `/journal/:id` | Soft-delete an entry. Journal entries are never deleted automatically. |
+| POST | `/journal/attachments` | Registers metadata (`fileName`/`fileType`/`fileSize`/`url`) for a file the client already hosted elsewhere — not a binary upload endpoint (no object-storage provider exists anywhere in this codebase yet). |
+| DELETE | `/journal/attachments/:id` | Hard-deletes an attachment record. |
+
+**One Morning/Evening journal per day, unlimited Freeform** is enforced in `JournalService`
+(a `findFirst` check before create, 409 on a match) rather than a database constraint — the rule
+is conditional on `type`, which Postgres can only express as a *partial* unique index, a feature
+Prisma's schema DSL has no declarative syntax for without hand-written migration SQL. This is a
+documented, accepted limitation (see the class doc on `JournalEntry` in `prisma/schema.prisma`),
+not a bug.
+
+**`goalId`/`plannerDayId`** are optional, one-directional links (same `assertGoalOwnership`
+pattern every other module's optional `goalId` already uses, plus a symmetric
+`assertPlannerDayOwnership`) — a value in the request body must belong to the same user, 404
+otherwise. Journal does **not** gain a new `GoalTargetType` (e.g. a hypothetical
+`JOURNAL_COUNT`) — a Goal's "related journal entries" (Goal Detail) is a plain
+`GET /journal/search?goalId=` query, not a progress input.
+
+**The reflection-prompt catalog (`JournalPrompt`)** is upserted from one TypeScript array
+(`modules/journal/utils/journal-prompt-definitions.ts`) at boot, the same pattern
+`AchievementsService` already established for the achievement catalog (Milestone 8) — one source
+of truth instead of a separate seed script.
+
+**Cross-feature integration is composed on the frontend**, not via backend module imports: Habit
+completion summary and current streak (shown on the Evening Journal page) reuse Habits'/Streaks'
+own existing `GET /habits/summary`/`GET /streaks/today` endpoints directly; Planner's "open
+today's journal" is a plain link to `/journal`; Goal Detail's "related journal entries" calls
+`GET /journal/search?goalId=`. `JournalModule` itself imports nothing from any sibling module —
+see `docs/05-architecture.md`'s Milestone 10 note for the full rationale.
+
 ## Not yet implemented
 
-Journal, Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see
-`docs/09-roadmap.md` for milestone sequencing. XP/achievements are the beginning of
-"Gamification," per that roadmap's Phase 3, but a level system, badges beyond the fixed
-`Achievement` catalog, and daily/weekly Challenges remain unbuilt (see the note on Milestone 8 in
-`docs/changelog.md`).
+Calendar, Notifications, AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for
+milestone sequencing. XP/achievements are the beginning of "Gamification," per that roadmap's
+Phase 3, but a level system, badges beyond the fixed `Achievement` catalog, and daily/weekly
+Challenges remain unbuilt (see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is
+exported by `JournalModule` specifically so a future AI Coach module can reuse it as a read source
+for coaching context — no AI code exists yet.

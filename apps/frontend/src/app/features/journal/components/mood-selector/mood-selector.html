@@ -1,0 +1,15 @@
+<div class="mood-selector">
+  @for (mood of moods; track mood) {
+    <button
+      type="button"
+      mat-icon-button
+      class="mood-selector__option"
+      [class.mood-selector__option--active]="value() === mood"
+      [matTooltip]="labels[mood]"
+      [disabled]="disabled()"
+      (click)="select(mood)"
+    >
+      <span class="mood-selector__emoji">{{ emoji[mood] }}</span>
+    </button>
+  }
+</div>
