@@ -1,0 +1,19 @@
+<mat-card class="comparison-card" appearance="outlined">
+  <mat-card-content>
+    <p class="comparison-card__title">{{ title() }}</p>
+    <div class="comparison-card__row">
+      <div>
+        <p class="comparison-card__value">{{ currentValue() }}{{ unit() }}</p>
+        <p class="comparison-card__label">{{ currentLabel() }}</p>
+      </div>
+      <mat-icon class="comparison-card__arrow" [class.comparison-card__arrow--down]="!isImprovement()">arrow_forward</mat-icon>
+      <div>
+        <p class="comparison-card__value comparison-card__value--muted">{{ previousValue() }}{{ unit() }}</p>
+        <p class="comparison-card__label">{{ previousLabel() }}</p>
+      </div>
+    </div>
+    <p class="comparison-card__delta" [class.comparison-card__delta--negative]="!isImprovement()">
+      {{ formattedDelta() }}{{ unit() }}
+    </p>
+  </mat-card-content>
+</mat-card>

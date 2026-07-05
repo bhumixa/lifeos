@@ -1,0 +1,30 @@
+.heatmap {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+}
+
+.heatmap__column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap__cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  cursor: default;
+}
+
+.heatmap__cell--empty {
+  visibility: hidden;
+}
+
+.heatmap__empty {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-align: center;
+  padding: 2rem 0;
+  margin: 0;
+}

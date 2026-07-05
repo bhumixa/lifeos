@@ -10,3 +10,4 @@ export * from './journal.types.js';
 export * from './calendar.types.js';
 export * from './notification.types.js';
 export * from './ai.types.js';
+export * from './analytics.types.js';

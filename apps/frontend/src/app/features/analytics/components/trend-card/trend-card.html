@@ -1,0 +1,15 @@
+<mat-card class="trend-card" appearance="outlined">
+  <mat-card-content class="trend-card__content">
+    <div class="trend-card__header">
+      <mat-icon class="trend-card__icon">{{ icon() }}</mat-icon>
+      <div>
+        <p class="trend-card__value">{{ value() }}</p>
+        <p class="trend-card__label">{{ label() }}</p>
+      </div>
+      @if (deltaPercent(); as delta) {
+        <span class="trend-card__delta" [class.trend-card__delta--negative]="delta < 0">{{ formatDeltaPercent(delta) }}</span>
+      }
+    </div>
+    <app-line-chart [series]="series()" [color]="color()" [compact]="true" />
+  </mat-card-content>
+</mat-card>

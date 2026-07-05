@@ -27,5 +27,10 @@ import { MicrosoftCalendarProvider } from './providers/microsoft-calendar.provid
     AppleCalendarProvider,
     IcalCalendarProvider,
   ],
+  // Milestone 14: a small, additive export (no existing behavior changed) so AnalyticsModule can
+  // reuse CalendarService/CalendarEventsService's own read-only methods for the Calendar analytics
+  // endpoint, the same "reuse services, don't duplicate the query" precedent Streaks/Goals already
+  // set for AiModule in Milestone 13.
+  exports: [CalendarService, CalendarEventsService],
 })
 export class CalendarModule {}

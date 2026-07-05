@@ -1,0 +1,50 @@
+<section class="exports-page">
+  <header class="exports-page__header">
+    <h1>Exports</h1>
+    <button mat-flat-button (click)="openExportDialog()">
+      <mat-icon>add</mat-icon>
+      New Export
+    </button>
+  </header>
+
+  @if (loading()) {
+    @for (i of [0, 1, 2]; track i) {
+      <app-skeleton height="72px" />
+    }
+  } @else if (exports().length === 0) {
+    <app-empty-state icon="file_download" title="No exports yet" message="Generate a CSV or JSON export of any report above.">
+      <button mat-flat-button (click)="openExportDialog()">New Export</button>
+    </app-empty-state>
+  } @else {
+    <div class="exports-page__list">
+      @for (item of exports(); track item.id) {
+        <mat-card appearance="outlined" class="exports-page__row">
+          <mat-card-content class="exports-page__row-content">
+            <div>
+              <p class="exports-page__row-title">{{ reportTypeLabel(item.type) }} · {{ item.format }}</p>
+              <p class="exports-page__row-meta">{{ item.createdAt | date: 'medium' }}</p>
+              @if (item.status === 'FAILED') {
+                <p class="exports-page__row-error">{{ item.errorMessage }}</p>
+              } @else if (item.filePath) {
+                <p class="exports-page__row-meta">Saved to: {{ item.filePath }}</p>
+              }
+            </div>
+            <mat-chip [class.exports-page__chip--failed]="item.status === 'FAILED'">{{ item.status }}</mat-chip>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+
+    @if (meta().totalPages > 1) {
+      <div class="exports-page__pagination">
+        <button mat-icon-button [disabled]="meta().page <= 1" (click)="load(meta().page - 1)">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span>{{ meta().page }} / {{ meta().totalPages }}</span>
+        <button mat-icon-button [disabled]="meta().page >= meta().totalPages" (click)="load(meta().page + 1)">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    }
+  }
+</section>

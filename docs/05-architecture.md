@@ -325,6 +325,47 @@ explicitly frames itself as advisory only, per this milestone's "no autonomous a
 only writes this whole module ever performs, in total, are to its own `AiInsight`/`AiConversation`/
 `AiMessage` tables.
 
+**Milestone 14 (Analytics, Reports & Life Insights) is the widest read-only fan-in in this
+codebase, one wider than AI Coach's own seven, and the fourth module to use the provider/adapter
+shape this doc has anticipated since Calendar.** `AnalyticsService` composes `HabitsService`/
+`GoalsService`/`StreaksService`/`JournalService`/`NotificationsService`/`CalendarEventsService`/
+`AiInsightsService` — every one already exported by its own module except Calendar/AI, which each
+gained the same one-line additive `exports: [...]` Streaks/Goals already got for AI Coach (no other
+existing behavior changed). `TasksModule`/`PlannerModule` are deliberately not imported:
+`AnalyticsService` reads the `Task`/`PlannerBlock`/`PlannerDay` tables directly via the
+globally-registered `PrismaService` for its own arbitrary-date-range time series — the same "raw
+read for a cross-cutting query no existing method exposes" reasoning `AiAnalysisService` already
+established for its own equivalents, extended here from a fixed 14-day trend window to any
+DAY/WEEK/MONTH/YEAR range a caller requests. "Analytics never modifies data" is enforced the exact
+same way AI Coach's own rule is: every sibling-service call is a plain read, never
+`StreaksService.getStatistics`/`GoalsService.getProgress` (both persist a side effect) — the only
+writes anywhere in this module are `AnalyticsSnapshotService`'s own cache rows and
+`AnalyticsExportService`'s own `AnalyticsExport` rows.
+
+**`AnalyticsSnapshot` is this milestone's implementation of the database-design doc's long-sketched,
+never-built `DailyStat`** (see that doc's own note) — an optional read-through cache in front of
+`AnalyticsService.computeTodayScores`, not a second source of truth: `AnalyticsSnapshotService
+.getOrCreateToday` reads a row if present (cache hit, no aggregation runs) and otherwise computes
+the same scores fresh and persists them (cache miss, then warm), so a missing/deleted row is never
+a correctness bug, only a slower read — the same "derived, not stored, but may be cached" spirit
+Milestone 8's Streak Engine established for its own numbers, applied here with an actual cache
+table since Overview's aggregation (seven sibling-service calls) is meaningfully more expensive than
+a single streak recomputation. A concurrent create/create race is caught (`P2002`) and resolved by
+reading back the winning row rather than surfacing a 500 — the same "documented, accepted
+concurrency edge case" spirit Journal's own one-entry-per-day check already accepts.
+
+**Export pipeline is the fourth provider/adapter implementation** (`ICalendarProvider` →
+`INotificationChannel` → `AiProvider` → `ExportGenerator`), resolved through
+`ExportGeneratorRegistry` exactly like its predecessors: `CsvExportGenerator`/`JsonExportGenerator`
+are the two that "do anything real"; `PdfExportGenerator` extends `PlaceholderExportGenerator`,
+which always returns an explicit `NOT_IMPLEMENTED` result — never a thrown exception, never a
+silent no-op — per this milestone's own "architecture only for PDF" instruction. A successful
+CSV/JSON generation is written to this backend's local `exports/<userId>/` directory (no
+S3/Cloudinary provider exists anywhere in this codebase, the same "don't add object storage
+without justification" call `JournalAttachment` already made) and the same content is returned
+inline in the `POST /analytics/export` response — there is no separate download endpoint in this
+milestone's own literal endpoint list.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:

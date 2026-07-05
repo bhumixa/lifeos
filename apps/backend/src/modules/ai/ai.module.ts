@@ -27,8 +27,11 @@ import { OpenAiProvider } from './providers/openai.provider.js';
  * RoutinesModule/CalendarModule are not imported: this milestone's analysis list doesn't name
  * Routines or Calendar as a source, and neither exports anything AI Coach would otherwise need.
  *
- * Exports nothing — unlike Tasks/Habits/Planner/Journal/Streaks/Goals, no other module reuses
- * AiModule (yet); it is the current end of this codebase's module dependency chain.
+ * Milestone 14: gained a one-line additive `exports: [AiInsightsService]` — the same "reuse
+ * services, don't duplicate the query" precedent this module's own imports already establish for
+ * Streaks/Goals — so AnalyticsModule can fold `activeInsightCount` into its Overview endpoint
+ * (the milestone brief names "AI Insights" as one of Analytics' data sources) without AiModule
+ * gaining a sibling-module import of its own or any existing behavior changing.
  */
 @Module({
   imports: [
@@ -52,5 +55,6 @@ import { OpenAiProvider } from './providers/openai.provider.js';
     AnthropicProvider,
     GoogleAiProvider,
   ],
+  exports: [AiInsightsService],
 })
 export class AiModule {}

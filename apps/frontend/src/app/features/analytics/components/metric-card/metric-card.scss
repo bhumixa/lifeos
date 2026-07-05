@@ -1,0 +1,60 @@
+.metric-card {
+  height: 100%;
+  border-top: 3px solid transparent;
+}
+
+.metric-card--high {
+  border-top-color: var(--mat-sys-tertiary, #4caf50);
+}
+
+.metric-card--medium {
+  border-top-color: #f5a623;
+}
+
+.metric-card--low {
+  border-top-color: var(--mat-sys-error, #d32f2f);
+}
+
+.metric-card__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.metric-card__icon {
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+  color: var(--mat-sys-primary);
+}
+
+.metric-card__value {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+}
+
+.metric-card__label {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+.metric-card__delta {
+  margin: 0.25rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font: var(--mat-sys-label-medium);
+}
+
+.metric-card__delta--up {
+  color: var(--mat-sys-tertiary, #4caf50);
+}
+
+.metric-card__delta--down {
+  color: var(--mat-sys-error, #d32f2f);
+}
+
+.metric-card__delta--flat {
+  color: var(--mat-sys-on-surface-variant);
+}

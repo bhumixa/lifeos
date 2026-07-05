@@ -76,6 +76,21 @@
 // existing behavior changed) so AiAnalysisService can reuse them the same "reuse services" way every
 // prior fan-in module (Planner/Streaks/Goals) already does — see docs/05-architecture.md's
 // Milestone 13 note for the full rationale.
+// Milestone 14 (Analytics, Reports & Life Insights) adds AnalyticsSnapshot/AnalyticsExport. This is
+// the widest read-only fan-in yet — modules/analytics composes Tasks/Habits/Planner/Streaks/Goals/
+// Journal/Calendar/Notifications/AiInsights' own existing read-only methods (`CalendarModule`/
+// `AiModule` each gained the same kind of one-line additive `exports: [...Service]` Streaks/Goals
+// already got in Milestone 13) into per-domain time-series metrics — never a write path, exactly
+// the same "never modifies data" discipline AI Coach already established. `AnalyticsSnapshot` is
+// this milestone's implementation of docs/06-database-design.md's long-sketched, never-built
+// `DailyStat` (same "one precomputed row per user per day" role, under this milestone's own field
+// names) — an optional read-through cache in front of the otherwise-recomputed-every-time Overview
+// aggregation, not a second source of truth (`AnalyticsService` can always recompute every field
+// from source data if a row is missing or stale). `AnalyticsExport` is a durable record of one
+// export *attempt* (CSV/JSON actually generated; PDF an honest `NOT_IMPLEMENTED` result via the
+// same provider/adapter shape Calendar/Notifications/AI already established, its fourth use in this
+// codebase) — see the comment on AnalyticsExport for why `filePath`/`errorMessage` are both
+// nullable and what each state means.
 
 generator client {
   provider = "prisma-client-js"
@@ -129,6 +144,8 @@ model User {
   notificationPreference NotificationPreference?
   aiInsights             AiInsight[]
   aiConversations        AiConversation[]
+  analyticsSnapshots     AnalyticsSnapshot[]
+  analyticsExports       AnalyticsExport[]
 
   @@map("users")
 }
@@ -1244,4 +1261,119 @@ model AiMessage {
 
   @@index([conversationId, createdAt])
   @@map("ai_messages")
+}
+
+// Chart/report granularity for the six per-domain analytics endpoints (Productivity/Habits/
+// Goals/Planner/Journal/Calendar) — a request-time query parameter (`?period=`), not a column
+// anywhere: AnalyticsService buckets its otherwise-identical daily time series into DAY/WEEK/
+// MONTH/YEAR windows on read, the same "one computation, several call shapes" role
+// `docs/05-architecture.md`'s note on Streaks' lookback window already plays. `AnalyticsSnapshot`
+// below deliberately does NOT carry this enum — a snapshot is always a single calendar day's
+// rollup (see the comment on AnalyticsSnapshot), matching docs/06-database-design.md's original
+// `DailyStat` sketch exactly; period-bucketing only ever applies to the live time-series
+// endpoints, not the cached Overview snapshot.
+enum AnalyticsPeriod {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+// Which encoding `POST /analytics/export` produced. PDF is a real, legal value today (a client can
+// request it) but every call resolves to an honest `NOT_IMPLEMENTED` result via
+// `PdfExportGenerator` (see modules/analytics/exporters/) — the same "real enum value, no adapter
+// left unhandled" choice `CalendarProvider.ICAL` already made in Milestone 11, not a value held
+// back until a real generator exists.
+enum ExportFormat {
+  PDF
+  CSV
+  JSON
+}
+
+// This milestone's implementation of docs/06-database-design.md's long-sketched, never-built
+// `DailyStat` — one precomputed row per (user, date), under this milestone's own field names
+// (`productivityScore`/`habitScore`/`plannerScore`/`goalScore`/`journalScore` replace that sketch's
+// single `productivityScore`, since Analytics scores each domain separately rather than folding
+// them into one number). Optional caching only, per this milestone's own business rules: nothing
+// in `AnalyticsService` depends on a row existing here — `AnalyticsSnapshotService.getOrCreate`
+// reads one if present (cache hit) and otherwise computes the same five scores +
+// `focusMinutes`/`streakDays` from Task/Habit/Planner/Goal/Journal/Streak source data and persists
+// the result (cache miss, then warm) — so a missing or deleted row is never a correctness bug, only
+// a slower read. No `deletedAt`: a snapshot is disposable, re-derivable analysis output (the source
+// Task/Habit/Goal/etc. rows remain the record of truth), the same reasoning already applied to
+// `AiInsight`/`Notification`.
+model AnalyticsSnapshot {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Date-only, like HabitLog.date/PlannerDay.date — the calendar day (in the user's own timezone,
+  // resolved the same way PlannerService/JournalService already do) this rollup covers.
+  snapshotDate DateTime @db.Date
+
+  // 0-100 each, computed by AnalyticsService — see modules/analytics/utils/analytics-scoring.util.ts
+  // for the documented formula behind every score (this milestone resolves
+  // docs/02-missing-requirements.md's long-open "Productivity Score formula TBD" note).
+  productivityScore Int
+  habitScore        Int
+  plannerScore      Int
+  goalScore         Int
+  journalScore      Int
+  // Minutes of completed FOCUS-type PlannerBlocks that date — the same source
+  // `AiAnalysisService`'s own metrics would use, computed via a raw read here for the same
+  // "cross-cutting query no existing method exposes" reason AI Coach's analysis engine already
+  // documents for its own equivalents.
+  focusMinutes Int
+  // StreaksService.getOverview(userId).currentStreak as of the moment this snapshot was written —
+  // a point-in-time copy, not a live value; a snapshot for a past date does not update if the
+  // user's streak later changes.
+  streakDays Int
+
+  createdAt DateTime @default(now())
+
+  // One snapshot per user per date — AnalyticsSnapshotService.getOrCreate finds-or-computes
+  // against this constraint, the same "find-or-create on first read" convention PlannerDay/
+  // HabitLog/NotificationPreference already establish for their own per-user rows.
+  @@unique([userId, snapshotDate])
+  @@index([userId, snapshotDate])
+  @@map("analytics_snapshots")
+}
+
+// A durable record of one export *attempt* — `type` names which report was requested (a plain
+// String, not a new enum, validated against a fixed set in `CreateAnalyticsExportDto`: matching
+// the exact precedent `Goal.category`/`CalendarSync.status` already set for a field the milestone
+// brief's own Enums section doesn't name), `format` is the real `ExportFormat` enum above.
+// `status` is likewise a plain String ("COMPLETED"/"FAILED"), not a new enum, the same
+// "brief's Enums section didn't name it" precedent `CalendarSync.status`/`NotificationQueue.status`
+// already set — `AnalyticsExportService` writes and validates one of "COMPLETED"/"FAILED" on every
+// row. `filePath` is set only for a COMPLETED CSV/JSON export (written to this backend's local
+// `exports/` directory — no S3/Cloudinary provider exists anywhere in this codebase, the same
+// "don't add object storage without justification" call `JournalAttachment` already made, and this
+// milestone's own generated files are small, user-owned text exports, not the kind of durable
+// binary asset that would justify one); it stays null for a FAILED/NOT_IMPLEMENTED attempt (e.g.
+// every PDF request today), which sets `errorMessage` instead — an additive field beyond the
+// milestone's own literal field list, added for exactly the reason `CalendarSync.errorMessage`
+// already exists (a FAILED row with nothing to say why is a debugging dead end). No `deletedAt` —
+// an export record is disposable, re-derivable history (the underlying Task/Habit/Goal/etc. rows
+// remain the record of truth, the export is just a formatted copy), the same reasoning already
+// applied to `AiInsight`/`Notification`/`AnalyticsSnapshot`.
+model AnalyticsExport {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One of "OVERVIEW"/"PRODUCTIVITY"/"HABITS"/"GOALS"/"PLANNER"/"JOURNAL"/"CALENDAR" — a 1:1 match
+  // to the seven read-only GET endpoints this milestone builds, validated by
+  // `CreateAnalyticsExportDto` (see modules/analytics/dto/).
+  type   String
+  format ExportFormat
+
+  status       String
+  filePath     String?
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("analytics_exports")
 }

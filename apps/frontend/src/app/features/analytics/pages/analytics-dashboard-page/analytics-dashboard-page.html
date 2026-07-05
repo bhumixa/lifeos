@@ -1,0 +1,115 @@
+<section class="analytics-dashboard">
+  <header class="analytics-dashboard__header">
+    <h1>Analytics</h1>
+    <div class="analytics-dashboard__actions">
+      <a mat-stroked-button routerLink="../reports">Reports</a>
+      <a mat-stroked-button routerLink="../exports">Exports</a>
+    </div>
+  </header>
+
+  <div class="analytics-dashboard__metrics">
+    @if (overviewLoading()) {
+      @for (i of [0, 1, 2, 3, 4, 5, 6, 7]; track i) {
+        <app-skeleton height="90px" />
+      }
+    } @else if (overview(); as data) {
+      <app-metric-card label="Productivity" value="{{ data.productivityScore }}" icon="trending_up" [score]="data.productivityScore" />
+      <app-metric-card label="Habits" value="{{ data.habitScore }}" icon="repeat" [score]="data.habitScore" />
+      <app-metric-card label="Planner" value="{{ data.plannerScore }}" icon="event_note" [score]="data.plannerScore" />
+      <app-metric-card label="Goals" value="{{ data.goalScore }}" icon="flag" [score]="data.goalScore" />
+      <app-metric-card label="Journal" value="{{ data.journalScore }}" icon="book" [score]="data.journalScore" />
+      <app-metric-card label="Focus Time" value="{{ formatMinutes(data.focusMinutes) }}" icon="timer" />
+      <app-metric-card label="Streak Days" value="{{ data.streakDays }}" icon="local_fire_department" />
+      <app-metric-card label="Active Insights" value="{{ data.activeInsightCount }}" icon="psychology" />
+    }
+  </div>
+
+  <div class="analytics-dashboard__range">
+    <app-time-range-picker [value]="periodStore.period()" (periodChange)="onPeriodChange($event)" />
+  </div>
+
+  <div class="analytics-dashboard__grid">
+    @if (domainsLoading()) {
+      @for (i of [0, 1, 2, 3, 4, 5]; track i) {
+        <app-skeleton height="220px" />
+      }
+    } @else {
+      @if (productivity(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Productivity</h3>
+            <app-line-chart [series]="data.series" color="#4f46e5" />
+            <app-comparison-card
+              title="Completion Rate"
+              currentLabel="This period"
+              [currentValue]="data.summary.averageCompletionRate"
+              previousLabel="Previous period"
+              [previousValue]="data.summary.averageCompletionRate - data.summary.deltaPercent"
+            />
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (habits(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Habits</h3>
+            <app-bar-chart [series]="data.series" color="#16a34a" />
+            <p class="analytics-dashboard__summary-line">
+              {{ data.summary.averageCompletionRate }}% average completion · {{ data.summary.totalActiveHabits }} active habits
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (goals(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Goals</h3>
+            <app-bar-chart [series]="data.series" color="#f59e0b" />
+            <p class="analytics-dashboard__summary-line">
+              {{ data.summary.activeCount }} active · {{ data.summary.completedCount }} completed ·
+              {{ data.summary.averageProgressPercent }}% avg. progress
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (planner(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Planner</h3>
+            <app-line-chart [series]="data.series" color="#0ea5e9" />
+            <p class="analytics-dashboard__summary-line">
+              {{ data.summary.averageUtilizationRate }}% utilization · {{ formatMinutes(data.summary.totalFocusMinutes) }} focus time
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (journal(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Journal</h3>
+            <app-heatmap [cells]="journalHeatmapCells()" color="#a855f7" />
+            <p class="analytics-dashboard__summary-line">
+              {{ data.summary.consistencyRate }}% consistency · Mood {{ moodTrendLabel(data.summary.moodTrendDirection) }}
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (calendar(); as data) {
+        <mat-card appearance="outlined" class="analytics-dashboard__card">
+          <mat-card-content>
+            <h3>Calendar</h3>
+            <app-bar-chart [series]="data.series" color="#ec4899" />
+            <p class="analytics-dashboard__summary-line">
+              {{ data.summary.totalEvents }} events · {{ data.summary.upcomingEvents }} upcoming
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+    }
+  </div>
+</section>

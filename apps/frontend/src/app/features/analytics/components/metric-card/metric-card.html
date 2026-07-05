@@ -1,0 +1,15 @@
+<mat-card class="metric-card" [class]="'metric-card--' + (level() ?? 'neutral')" appearance="outlined">
+  <mat-card-content class="metric-card__content">
+    <mat-icon class="metric-card__icon">{{ icon() }}</mat-icon>
+    <div>
+      <p class="metric-card__value">{{ value() }}</p>
+      <p class="metric-card__label">{{ label() }}</p>
+      @if (deltaLabel(); as delta) {
+        <p class="metric-card__delta" [class]="'metric-card__delta--' + deltaDirection()">
+          <mat-icon inline>{{ deltaDirection() === 'up' ? 'trending_up' : deltaDirection() === 'down' ? 'trending_down' : 'trending_flat' }}</mat-icon>
+          {{ delta }}
+        </p>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,12 @@
+@if (isEmpty()) {
+  <p class="bar-chart__empty">No data for this period yet.</p>
+} @else {
+  <div class="bar-chart">
+    @for (bar of bars(); track bar.bucket) {
+      <div class="bar-chart__column" [matTooltip]="bar.bucket + ': ' + bar.value">
+        <div class="bar-chart__bar" [style.height.%]="bar.heightPercent" [style.background]="color()"></div>
+        <span class="bar-chart__label">{{ bar.bucket.slice(5) }}</span>
+      </div>
+    }
+  </div>
+}

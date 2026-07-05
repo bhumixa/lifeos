@@ -789,11 +789,11 @@ Notification
 
 ### Analytics & gamification
 
-> **Superseded in part by Milestone 8** — see the note under "Habits & streaks" above.
-> `GamificationProfile.xp`/`Badge`/`UserBadge` are replaced there by `Achievement`/
-> `UserAchievement` plus an on-read-computed XP total (no stored `xp`/`level` columns —
-> "prepare the foundation, don't build levels yet" per that milestone's brief). `DailyStat` and
-> `Challenge`/`UserChallenge` below remain exactly as sketched here — unbuilt.
+> **Superseded in part by Milestone 8, and in part by Milestone 14** — see the note under "Habits &
+> streaks" above for `GamificationProfile.xp`/`Badge`/`UserBadge`'s own replacement by
+> `Achievement`/`UserAchievement`. `DailyStat` is superseded by Milestone 14's `AnalyticsSnapshot`
+> — see the note immediately below this sketch for the full rationale. `Challenge`/`UserChallenge`
+> remain exactly as sketched here — unbuilt.
 
 ```
 DailyStat   -- precomputed nightly per user
@@ -840,6 +840,63 @@ UserChallenge
   completedAt       timestamp, nullable
 ```
 
+> **Added in Milestone 14 — Analytics, Reports & Life Insights:** `AnalyticsSnapshot` is this
+> milestone's implementation of `DailyStat` above — same "one precomputed row per user per day"
+> role, under this milestone's own field names:
+>
+> ```
+> AnalyticsSnapshot
+>   id                uuid PK
+>   userId            FK -> User
+>   snapshotDate      date
+>   productivityScore int   -- formula resolved this milestone; see docs/API.md's Analytics section
+>   habitScore        int
+>   plannerScore      int
+>   goalScore         int
+>   journalScore      int
+>   focusMinutes      int
+>   streakDays        int
+>   createdAt
+>   -- unique (userId, snapshotDate)
+>
+> AnalyticsExport
+>   id           uuid PK
+>   userId       FK -> User
+>   type         string   -- one of the seven report types; free-text, see comment below
+>   format       enum(PDF, CSV, JSON)
+>   status       string   -- "COMPLETED" | "FAILED"; free-text, see comment below
+>   filePath     string, nullable
+>   errorMessage string, nullable
+>   createdAt
+> ```
+>
+> - **`productivityScore`/`habitScore`/`plannerScore`/`goalScore`/`journalScore` replace this doc's
+>   single `productivityScore`** — Milestone 14 scores each domain separately rather than folding
+>   them into one number, resolving this doc's own "formula TBD" placeholder for good (see
+>   `docs/02-missing-requirements.md` and `modules/analytics/utils/analytics-scoring.util.ts`).
+>   `tasksPlanned`/`tasksCompleted`/`habitsCompleted`/`learningMinutes` from this doc's original
+>   sketch aren't persisted columns — they're exactly the kind of numbers this milestone's own
+>   read-only endpoints (`/analytics/productivity`, `/analytics/habits`) compute fresh from source
+>   data on every request instead, the same "derived, not stored" principle Habit/Routine/Streak
+>   already established for their own completion percentages.
+> - **Optional caching only, not a second source of truth** — `AnalyticsSnapshotService
+>   .getOrCreateToday` reads a row if present and otherwise computes the same scores fresh via
+>   `AnalyticsService.computeTodayScores` and persists them; a missing or deleted row is never a
+>   correctness bug, only a slower read. No `deletedAt` — a snapshot is disposable, re-derivable
+>   analysis output, the same reasoning already applied to `AiInsight`/`Notification`.
+> - **`AnalyticsExport.type`/`.status` are plain strings, not new enums** — this milestone's own
+>   Enums section names only `AnalyticsPeriod`/`ExportFormat`, so, matching the exact precedent
+>   `Goal.category`/`CalendarSync.status`/`NotificationQueue.status` already set, an enum isn't
+>   invented for a field the brief didn't ask to be one. `errorMessage` is one additive field
+>   beyond the milestone's own literal field list, added for the same reason `CalendarSync
+>   .errorMessage` already exists. No `deletedAt` on `AnalyticsExport` either — an export record is
+>   disposable history, not the irreplaceable content the soft-delete principle protects.
+> - **`filePath` points at this backend's own local `exports/<userId>/` disk directory** — no
+>   S3/Cloudinary provider exists anywhere in this codebase (the same call `JournalAttachment`
+>   already made), and this milestone's own generated files are small, user-owned text exports, not
+>   the kind of durable binary asset that would justify adding one. A real download endpoint and/or
+>   durable storage is flagged as remaining work, not silently worked around.
+
 ### Billing & admin
 
 ```
@@ -871,6 +928,7 @@ AdminAuditLog
 - As implemented (Milestone 9): `Goal` carries `(userId, status)` and `(userId, archived)`; `GoalMilestone` carries `(goalId, order)` for its own list ordering, the same role `RoutineStep`'s `(routineId, order)` plays. `Task`/`Habit`/`Routine`/`PlannerBlock` each gained a plain `(goalId)` index backing the progress-aggregation queries `GoalsService` runs per `targetType`.
 - As implemented (Milestone 11): `Calendar` carries `(userId, enabled)`. `CalendarEvent` carries `(calendarId, startTime)` for the Month/Week/Day views' range queries, plus a plain index on each of its four optional cross-link columns (`plannerBlockId`, `taskId`, `goalId`, `journalEntryId`) — the same "index every optional cross-link" convention `goalId` already gets everywhere else. `CalendarSync` carries `(calendarId, createdAt)` for "most recent sync attempt" lookups.
 - As implemented (Milestone 12): `Notification` carries `(userId, status)`, `(userId, scheduledFor)`, and `(userId, readAt)` for `NotificationsService.findAll`/`findUnread`'s own filter/sort patterns. `NotificationQueue` carries a unique `(notificationId)` (its 1:1 relation to `Notification`) plus `(status, nextAttempt)` backing `NotificationQueueService.processDue`'s "what's due right now" query. `NotificationPreference` carries a unique `(userId)` for its own 1:1 relation.
+- As implemented (Milestone 14): `AnalyticsSnapshot` carries a unique `(userId, snapshotDate)` — the same "find-or-create on first read" convention `PlannerDay`/`HabitLog` already establish — plus a plain `(userId, snapshotDate)` index for range reads. `AnalyticsExport` carries `(userId, createdAt)` for `AnalyticsExportService.findAll`'s own "this user's export history, newest first" query.
 
 ## Why this shape
 

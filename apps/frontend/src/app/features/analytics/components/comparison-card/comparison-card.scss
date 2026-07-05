@@ -1,0 +1,50 @@
+.comparison-card__title {
+  margin: 0 0 0.75rem;
+  font: var(--mat-sys-title-medium);
+}
+
+.comparison-card__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.comparison-card__row > div {
+  flex: 1;
+  text-align: center;
+}
+
+.comparison-card__value {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+}
+
+.comparison-card__value--muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.comparison-card__label {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.comparison-card__arrow {
+  color: var(--mat-sys-on-surface-variant);
+  transform: rotate(180deg);
+}
+
+.comparison-card__arrow--down {
+  color: var(--mat-sys-error, #d32f2f);
+}
+
+.comparison-card__delta {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-tertiary, #4caf50);
+}
+
+.comparison-card__delta--negative {
+  color: var(--mat-sys-error, #d32f2f);
+}

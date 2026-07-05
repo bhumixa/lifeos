@@ -17,7 +17,9 @@ import { authGuard } from './core/auth/auth.guard';
  * nav item too for direct discoverability, matching every other built feature. AI Coach
  * (Milestone 13) reused the `AI Coach` nav item already in Milestone 3's original list (like
  * Habits/Journal before it), so no nav change was needed — just replacing its placeholder with a
- * real `loadChildren`.
+ * real `loadChildren`. Analytics (Milestone 14) reused the `Analytics` nav item already in
+ * Milestone 3's original list, like Habits/Journal/AI Coach before it — no nav change was needed
+ * either.
  * Each of these has a real feature module, lazy-loaded via their own `*Routes`.
  * `data.breadcrumb`/`data.icon` feed both the sidenav (layout/sidenav/nav-items.ts) and
  * BreadcrumbService — keep labels in sync with nav-items.ts.
@@ -81,9 +83,7 @@ export const routes: Routes = [
       },
       {
         path: 'analytics',
-        data: { breadcrumb: 'Analytics', icon: 'insights' },
-        loadComponent: () =>
-          import('./shared/components/feature-placeholder/feature-placeholder').then((m) => m.FeaturePlaceholder),
+        loadChildren: () => import('./features/analytics/analytics.routes').then((m) => m.analyticsRoutes),
       },
       {
         path: 'settings',

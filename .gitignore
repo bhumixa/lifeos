@@ -15,6 +15,10 @@ coverage/
 # Prisma
 apps/backend/generated/
 
+# Analytics exports (Milestone 14) — generated user reports written to local disk, not
+# committed the same way build output/generated Prisma client aren't.
+apps/backend/exports/
+
 # Logs
 *.log
 npm-debug.log*

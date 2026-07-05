@@ -1,0 +1,12 @@
+.export-dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 320px;
+}
+
+.export-dialog__error {
+  color: var(--mat-sys-error, #d32f2f);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+}

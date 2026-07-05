@@ -1,0 +1,5 @@
+<mat-button-toggle-group [value]="value()" (change)="onChange($event.value)" aria-label="Chart time range">
+  @for (period of periods; track period) {
+    <mat-button-toggle [value]="period">{{ periodLabel(period) }}</mat-button-toggle>
+  }
+</mat-button-toggle-group>

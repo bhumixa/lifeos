@@ -379,9 +379,72 @@ prior Dashboard service already establishes. Top Recommendation is the highest-`
 insight; Productivity Trend reads the `PRODUCTIVITY`-type insight's `sourceData.deltaPercent`
 directly; Risk Alerts is every insight whose `sourceData.flags` includes `'risk'`.
 
+## Analytics (Milestone 14)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/analytics/overview` | Today's five 0-100 scores (`productivityScore`/`habitScore`/`plannerScore`/`goalScore`/`journalScore`) + `focusMinutes`/`streakDays`, read through the `AnalyticsSnapshot` cache (`cached: true/false`), plus two always-live counts (`activeInsightCount`, `unreadNotificationCount`) that are never cached. |
+| GET | `/analytics/productivity` | `?period=DAY\|WEEK\|MONTH\|YEAR` (default `WEEK`). Task+Planner completion-rate trend — `series` (value=completed, total=due/scheduled), `summary.averageCompletionRate`, `summary.deltaPercent` (vs. the equally-sized prior window), `summary.bestWeekdays`. |
+| GET | `/analytics/habits` | Same `?period=`. `series` (value=HabitLog count, total=active habit count that bucket), `summary.averageCompletionRate`/`totalActiveHabits`/`totalLogs`. |
+| GET | `/analytics/goals` | Same `?period=`. `series` (value=goals that transitioned to `COMPLETED` that bucket, approximated from `Goal.updatedAt` — no dedicated `completedAt` column), `summary.activeCount`/`completedCount`/`completionRate`/`averageProgressPercent`. |
+| GET | `/analytics/planner` | Same `?period=`. `series` (value=completed block minutes, total=scheduled block minutes — "planner utilization"), `summary.averageUtilizationRate`/`totalFocusMinutes`/`totalBlocksCompleted`. |
+| GET | `/analytics/journal` | Same `?period=`. `series` (value=average mood score 1-5 for that bucket, total=entry count), `summary.consistencyRate` (% of the window with an entry), `summary.moodTrendDirection`/`moodTrendConsecutiveDays` (a recent-trend signal independent of `?period=`, same shape as AI Coach's own JOURNAL insight), `summary.averageMoodScore`. |
+| GET | `/analytics/calendar` | Same `?period=`. `series` (value=event count, no total), `summary.totalEvents`/`upcomingEvents`/`busiestWeekday`/`averageEventsPerDay`. |
+| GET | `/analytics/export` | Paginated export history (`AnalyticsExport` rows) for the requesting user. |
+| POST | `/analytics/export` | Body `{ type, format, period? }` — `type` is one of `OVERVIEW`/`PRODUCTIVITY`/`HABITS`/`GOALS`/`PLANNER`/`JOURNAL`/`CALENDAR` (a 1:1 match to the GET endpoints above); `format` is `CSV`/`JSON`/`PDF`. Generates the report, persists one `AnalyticsExport` row (`COMPLETED` or `FAILED`), and returns it plus the generated file's own text `content` inline — there is no separate download endpoint, so the frontend triggers a browser download directly from this response. `content` is `null` for a `FAILED`/`NOT_IMPLEMENTED` result (every `PDF` request today). |
+
+**Analytics is strictly read-only, the same discipline AI Coach established — it never writes to
+any other module's data.** `AnalyticsService` composes `HabitsService`/`GoalsService`/
+`StreaksService`/`JournalService`/`NotificationsService`/`CalendarEventsService`/`AiInsightsService`
+— the widest read-only fan-in in this codebase, one wider than AI Coach's own seven — through each
+one's existing read-only methods, plus direct read-only `PrismaService` queries scoped by `userId`
+for the Task/PlannerBlock time series no existing method exposes (the same "cross-cutting query"
+reasoning `AiAnalysisService` already established for its own equivalents). `CalendarModule`/
+`AiModule` each gained a one-line additive `exports: [...]` — the same "reuse services" precedent
+Streaks/Goals already set for AI Coach in Milestone 13 — so `AnalyticsModule` could import them; no
+other existing behavior changed anywhere.
+
+**Scoring formula** (this milestone's resolution of `docs/02-missing-requirements.md`'s long-open
+"Productivity Score — formula TBD" note, documented in `utils/analytics-scoring.util.ts`):
+`productivityScore` is an equal-weighted average of today's Task completion rate, Planner block
+completion rate, and Habit completion rate (reusing `HabitsService.summary()`'s own
+`completionPercentage` rather than recomputing it). `goalScore` is the average `progressPercent`
+across the user's own `ACTIVE` goals. `journalScore` is a 7-day rolling consistency rate (days with
+an entry ÷ 7), not a single day's binary presence. `focusMinutes`/`streakDays` are read directly
+(summed completed `FOCUS`-type `PlannerBlock` minutes for the day; `StreaksService.getOverview`'s
+own `currentStreak`).
+
+**Snapshot caching is optional, not a second source of truth.** `AnalyticsSnapshotService
+.getOrCreateToday` checks `AnalyticsSnapshot` for a `(userId, snapshotDate)` row first (cache hit,
+no aggregation runs); a miss computes the same five scores fresh via `AnalyticsService
+.computeTodayScores` and persists them (cache miss, then warm). A concurrent create/create race
+(two simultaneous cache misses) is caught (`P2002`) and resolved by reading back the row the other
+request just won, rather than surfacing a 500. `AnalyticsSnapshot` is this milestone's
+implementation of `docs/06-database-design.md`'s long-sketched, never-built `DailyStat` — see that
+doc's own note.
+
+**Export pipeline — the fourth use of this codebase's provider/adapter pattern** (after Calendar's
+`ICalendarProvider`, Notifications' `INotificationChannel`, AI Coach's `AiProvider`).
+`AnalyticsReportService` flattens whichever domain's typed response into one generic
+`{ headers, rows, summary }` shape; `ExportGeneratorRegistry` resolves the requested `ExportFormat`
+to its own `ExportGenerator` — `CsvExportGenerator`/`JsonExportGenerator` are the two that "do
+anything real" (the same role `MockAiProvider`/`LocalCalendarProvider`/`InAppChannel` already play
+among their own siblings); `PdfExportGenerator` extends `PlaceholderExportGenerator`, which always
+returns an explicit `NOT_IMPLEMENTED` result — never a thrown exception, never a silent no-op — per
+this milestone's own "architecture only for PDF" instruction. A successful CSV/JSON generation is
+written to this backend's local `exports/<userId>/` directory (no S3/Cloudinary provider exists
+anywhere in this codebase — the same "don't add object storage without justification" call
+`JournalAttachment` already made) and the same content is returned inline in the `POST` response.
+
+**Dashboard integration.** `DashboardAnalyticsService` derives all four Analytics widgets (Weekly
+Productivity, Focus Trend, Habit Trend, Mood Trend) from the same `GET /analytics/productivity`,
+`/analytics/planner`, `/analytics/habits`, and `/analytics/journal` calls (all `period=WEEK`) the
+Analytics feature's own pages already make — no dashboard-specific endpoint, the same "reuse
+existing APIs, several derived widgets" shape every prior Dashboard service already establishes.
+
 ## Not yet implemented
 
-Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
+Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
 XP/achievements are the beginning of "Gamification," per that roadmap's Phase 3, but a level
 system, badges beyond the fixed `Achievement` catalog, and daily/weekly Challenges remain unbuilt
 (see the note on Milestone 8 in `docs/changelog.md`). Calendar's own OAuth/external API integration
@@ -394,4 +457,10 @@ OpenAI/Anthropic/Google AI provider behind it (all three are documented `NOT_IMP
 placeholders by design); there's no dismiss/archive endpoint for `AiInsight` yet (the
 `InsightStatus` enum and list-side filtering exist, but nothing writes `ARCHIVED`/`DISMISSED`); and
 no job acts on `expiresAt` (the column is written and returned, but `GET /ai/insights` doesn't
-exclude expired rows automatically) — see the AI Coach section above.
+exclude expired rows automatically) — see the AI Coach section above. Analytics (Milestone 14) is
+architecturally complete but PDF export is a documented `NOT_IMPLEMENTED` placeholder by design;
+there is no `GET /analytics/export/:id/download` endpoint, so a historical export row's file
+content can only be re-downloaded by regenerating it (the file still exists at its own `filePath`
+on the backend's local disk, but nothing serves it back over HTTP); and that local-disk export
+storage is itself an MVP choice, not durable cross-deploy storage — see the Analytics section
+above.

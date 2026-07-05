@@ -1,0 +1,47 @@
+.analytics-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.analytics-dashboard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.analytics-dashboard__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.analytics-dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.analytics-dashboard__range {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.analytics-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.analytics-dashboard__card h3 {
+  margin: 0 0 0.75rem;
+}
+
+.analytics-dashboard__summary-line {
+  margin: 0.75rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

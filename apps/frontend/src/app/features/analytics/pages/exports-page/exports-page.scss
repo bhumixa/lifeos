@@ -1,0 +1,56 @@
+.exports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.exports-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.exports-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.exports-page__row-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.exports-page__row-title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+}
+
+.exports-page__row-meta {
+  margin: 0.25rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.exports-page__row-error {
+  margin: 0.25rem 0 0;
+  color: var(--mat-sys-error, #d32f2f);
+  font: var(--mat-sys-body-small);
+}
+
+.exports-page__chip--failed {
+  --mdc-chip-label-text-color: var(--mat-sys-error, #d32f2f);
+}
+
+.exports-page__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}

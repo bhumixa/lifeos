@@ -1,0 +1,39 @@
+@if (loading()) {
+  <div class="analytics-trends-card">
+    @for (i of [0, 1, 2, 3]; track i) {
+      <app-skeleton height="120px" />
+    }
+  </div>
+} @else if (summary(); as data) {
+  <div class="analytics-trends-card">
+    <app-trend-card
+      label="Weekly Productivity"
+      value="{{ data.weeklyProductivity.averageCompletionRate }}%"
+      icon="trending_up"
+      color="#4f46e5"
+      [series]="data.weeklyProductivity.series"
+      [deltaPercent]="data.weeklyProductivity.deltaPercent"
+    />
+    <app-trend-card
+      label="Focus Trend"
+      value="{{ formatMinutes(data.focusTrend.totalMinutes) }}"
+      icon="timer"
+      color="#0ea5e9"
+      [series]="data.focusTrend.series"
+    />
+    <app-trend-card
+      label="Habit Trend"
+      value="{{ data.habitTrend.averageCompletionRate }}%"
+      icon="repeat"
+      color="#16a34a"
+      [series]="data.habitTrend.series"
+    />
+    <app-trend-card
+      label="Mood Trend"
+      value="{{ moodTrendLabel(data.moodTrend.direction) }}"
+      icon="mood"
+      color="#a855f7"
+      [series]="data.moodTrend.series"
+    />
+  </div>
+}

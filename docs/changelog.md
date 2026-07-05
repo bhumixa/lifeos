@@ -6,6 +6,103 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 14 — Analytics, Reports & Life Insights (2026-07-05)
+
+Strictly read-only Analytics module: backend `modules/analytics` (9 endpoints — overview,
+six per-domain time-series reports (Productivity/Habits/Goals/Planner/Journal/Calendar), export
+history, and export generation) composing Habits/Streaks/Goals/Journal/Notifications/Calendar/
+AiInsights' own existing read-only methods (plus direct read-only Task/PlannerBlock queries) into
+0-100 scores and DAY/WEEK/MONTH/YEAR charts, an optional `AnalyticsSnapshot` read-through cache for
+the Overview endpoint, and a CSV/JSON export pipeline (PDF architecture-only, per instruction). A
+full frontend feature (Analytics Dashboard, Reports, Exports; 9 components — Metric Card, Line
+Chart, Bar Chart, Pie Chart, Heatmap, Trend Card, Comparison Card, Export Dialog, Time Range
+Picker), and four new Dashboard widgets (Weekly Productivity, Focus Trend, Habit Trend, Mood
+Trend) — all derived from the existing `/analytics/*` calls, no dashboard-specific endpoint.
+
+Key decisions:
+- **The widest read-only fan-in in this codebase, one wider than AI Coach's own seven**:
+  `AnalyticsService` injects `HabitsService`/`GoalsService`/`StreaksService`/`JournalService`/
+  `NotificationsService`/`CalendarEventsService`/`AiInsightsService` — every one already exported
+  by its own module except Calendar/AI, which each gained the same one-line additive
+  `exports: [...]` Streaks/Goals already got for AI Coach in Milestone 13 (no other existing
+  behavior changed). `TasksModule`/`PlannerModule` are deliberately **not** imported:
+  `AnalyticsService` reads the `Task`/`PlannerBlock`/`PlannerDay` tables directly via the
+  globally-registered `PrismaService` for its own arbitrary-date-range time series, the same
+  "raw read for a cross-cutting query no existing method exposes" reasoning `AiAnalysisService`
+  already established for its own equivalents.
+- **"Analytics never modifies data" is enforced by omission, the same way AI Coach's own rule
+  is**: every sibling-service call `AnalyticsService` makes is a plain read (`findAll`, `summary`,
+  `getOverview`, `findUnread`) — never `StreaksService.getStatistics` or `GoalsService.getProgress`,
+  both of which persist a side effect. The only writes anywhere in this module are
+  `AnalyticsSnapshotService`'s own cache rows and `AnalyticsExportService`'s own `AnalyticsExport`
+  rows — never another module's table.
+- **`AnalyticsSnapshot` is this milestone's implementation of `docs/06-database-design.md`'s
+  long-sketched, never-built `DailyStat`** — one precomputed row per `(user, date)`, under this
+  milestone's own field names. Optional caching only, per the brief's own business rule:
+  `AnalyticsSnapshotService.getOrCreateToday` reads a row if present (cache hit, no aggregation
+  runs) and otherwise computes the same five scores fresh via `AnalyticsService
+  .computeTodayScores` and persists them (cache miss, then warm) — a missing/deleted row is never a
+  correctness bug, only a slower read. A concurrent create/create race (`P2002`) is caught and
+  resolved by reading back the row the other request just won, rather than a 500.
+- **Scoring formula resolves `docs/02-missing-requirements.md`'s long-open "Productivity Score —
+  formula TBD" note** (`utils/analytics-scoring.util.ts`): `productivityScore` is an equal-weighted
+  average of today's Task/Planner/Habit completion rates (reusing `HabitsService.summary()`'s own
+  `completionPercentage` rather than recomputing it); `goalScore` averages `progressPercent` across
+  `ACTIVE` goals; `journalScore` is a 7-day rolling consistency rate, not a single day's binary
+  presence (a bare "today has an entry" score would only ever read 0 or 100); `focusMinutes`/
+  `streakDays` are read directly (summed completed `FOCUS`-block minutes; `StreaksService
+  .getOverview`'s own `currentStreak`).
+- **`AnalyticsPeriod` (DAY/WEEK/MONTH/YEAR) is a request-time query parameter, not a column
+  anywhere** — `utils/analytics-bucket.util.ts`'s `resolvePeriodRange` maps each period to a
+  window and a bucketing granularity (DAY/WEEK stay day-by-day; MONTH buckets into 7-day windows;
+  YEAR buckets into calendar months), so every domain endpoint's chart stays readable regardless of
+  window length without a client-side downsampling step. Every bucket in range is zero-filled up
+  front so a chart never has a silent gap for a day/week/month nothing happened.
+- **Export pipeline is this codebase's fourth use of the provider/adapter pattern** (after
+  Calendar's `ICalendarProvider`, Notifications' `INotificationChannel`, AI Coach's `AiProvider`).
+  `AnalyticsReportService` flattens whichever domain's typed response into one generic
+  `{ headers, rows, summary }` shape; `ExportGeneratorRegistry` resolves the requested
+  `ExportFormat` to its own `ExportGenerator` — `CsvExportGenerator`/`JsonExportGenerator` are the
+  two that "do anything real"; `PdfExportGenerator` extends `PlaceholderExportGenerator`, which
+  always returns an explicit `NOT_IMPLEMENTED` result, never a thrown exception or silent no-op,
+  per this milestone's own "architecture only for PDF" instruction. A successful CSV/JSON
+  generation is written to this backend's local `exports/<userId>/` directory (no S3/Cloudinary
+  provider exists anywhere in this codebase — the same "don't add object storage without
+  justification" call `JournalAttachment` already made) and returned inline in the `POST` response
+  — there is no separate download endpoint in this milestone's own literal endpoint list, so the
+  frontend triggers a browser download directly from that response body.
+- **`AnalyticsExport.type`/`.status` are plain strings, not new enums** — the milestone brief's own
+  Enums section names only `AnalyticsPeriod`/`ExportFormat`, so, matching the exact precedent
+  `Goal.category`/`CalendarSync.status`/`NotificationQueue.status` already set, an enum isn't
+  invented for a field the brief didn't ask to be one. `errorMessage` is one additive field beyond
+  the milestone's own literal `AnalyticsExport` field list, added for the same reason
+  `CalendarSync.errorMessage` already exists — a `FAILED` row with nothing to say why is a
+  debugging dead end.
+- **Frontend charts are hand-rolled — SVG line chart, CSS bar chart, CSS `conic-gradient` donut,
+  and a GitHub-contributions-style heatmap grid — no charting library was added**, matching this
+  codebase's own established convention (`GoalTimeline`/`JournalCalendar`/`MiniCalendar` are all
+  hand-rolled for the same reason). `Heatmap` is Analytics' own copy of `habit-calendar-heatmap`'s
+  "week-grid, 5-level opacity" shape, rebuilt fresh rather than reaching into Habits'
+  `components/` folder — the same feature-isolation rule Calendar's own `DragDropEvent` already
+  follows.
+- **The main Dashboard's `AnalyticsTrendsCard` composes Analytics' own exported `TrendCard`
+  directly** (cross-feature component reuse, the same precedent Notifications' `NotificationBell`/
+  AI Coach's `RecommendationCard` already set), and `DashboardAnalyticsService` derives all four
+  widgets from the same `period=WEEK` calls to `/analytics/productivity`, `/planner`, `/habits`,
+  `/journal` the Analytics feature's own pages make — no dashboard-specific endpoint.
+- **Verification**: 50 new backend unit tests (bucket/scoring utils, CSV/JSON/registry exporters,
+  `AnalyticsService`'s per-domain composition and cross-user scoping, snapshot cache hit/miss/race,
+  report flattening, export create/list, controller delegation) plus the existing 535 all pass (585
+  total); 37 new frontend unit tests (API service, period store, display utils, dashboard-analytics
+  service, LineChart/BarChart/PieChart/Heatmap/MetricCard component behavior) plus the existing 338
+  all pass (375 total). Backend and frontend builds, the Prisma migration, and Swagger generation
+  all verified clean; both `npm run lint` runs report zero errors.
+- **Remaining work**: a real PDF generator behind `PdfExportGenerator` (documented `NOT_IMPLEMENTED`
+  placeholder by design this milestone); a `GET /analytics/export/:id/download` endpoint so a
+  historical export can be re-fetched without regenerating it; durable (non-local-disk) export
+  storage if this ships beyond a single backend instance; a background job that periodically warms
+  `AnalyticsSnapshot` for active users rather than relying entirely on request-time cache misses.
+
 ## Milestone 13 — AI Coach & Personal Insights (2026-07-05)
 
 Strictly read-only AI Coach: backend `modules/ai` (7 endpoints — insights list/get/generate, chat,

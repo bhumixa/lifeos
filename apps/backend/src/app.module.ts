@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { validateEnv } from './config/env.validation.js';
 import { PrismaModule } from './database/prisma/prisma.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CalendarModule } from './modules/calendar/calendar.module.js';
 import { GoalsModule } from './modules/goals/goals.module.js';
@@ -43,6 +44,7 @@ import { UsersModule } from './modules/users/users.module.js';
     CalendarModule,
     NotificationsModule,
     AiModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

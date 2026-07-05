@@ -8,6 +8,7 @@ import { StatCard } from '../../../../shared/components/stat-card/stat-card';
 import { formatDuration } from '../../../planner/utils/planner-display';
 import { computePlannerSummary } from '../../../planner/utils/planner-summary';
 import { AiInsightsPanel } from '../../components/ai-insights-panel/ai-insights-panel';
+import { AnalyticsTrendsCard } from '../../components/analytics-trends-card/analytics-trends-card';
 import { CalendarScheduleCard } from '../../components/calendar-schedule-card/calendar-schedule-card';
 import { HabitsQuickComplete } from '../../components/habits-quick-complete/habits-quick-complete';
 import { PlannerTimelineCard } from '../../components/planner-timeline-card/planner-timeline-card';
@@ -15,6 +16,7 @@ import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
 import { DashboardAiService } from '../../services/dashboard-ai.service';
+import { DashboardAnalyticsService, type DashboardAnalyticsSummary } from '../../services/dashboard-analytics.service';
 import { DashboardCalendarService, type DashboardScheduleItem } from '../../services/dashboard-calendar.service';
 import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
@@ -42,6 +44,7 @@ interface DashboardStat {
     CalendarScheduleCard,
     RecentActivity,
     AiInsightsPanel,
+    AnalyticsTrendsCard,
   ],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
@@ -57,6 +60,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardCalendar = inject(DashboardCalendarService);
   private readonly dashboardNotifications = inject(DashboardNotificationsService);
   private readonly dashboardAi = inject(DashboardAiService);
+  private readonly dashboardAnalytics = inject(DashboardAnalyticsService);
 
   protected readonly user = this.authService.user;
 
@@ -133,6 +137,9 @@ export class DashboardPage implements OnInit {
   protected readonly aiPanelLoading = signal(true);
   protected readonly aiTopRecommendation = signal<AiInsight | null>(null);
   protected readonly aiRiskAlerts = signal<AiInsight[]>([]);
+
+  protected readonly analyticsTrendsLoading = signal(true);
+  protected readonly analyticsTrends = signal<DashboardAnalyticsSummary | null>(null);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
@@ -325,6 +332,14 @@ export class DashboardPage implements OnInit {
         this.aiStatsLoading.set(false);
         this.aiPanelLoading.set(false);
       },
+    });
+
+    this.dashboardAnalytics.load().subscribe({
+      next: (summary) => {
+        this.analyticsTrends.set(summary);
+        this.analyticsTrendsLoading.set(false);
+      },
+      error: () => this.analyticsTrendsLoading.set(false),
     });
   }
 

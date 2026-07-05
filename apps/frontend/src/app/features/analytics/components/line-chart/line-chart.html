@@ -1,0 +1,17 @@
+@if (isEmpty()) {
+  <p class="line-chart__empty">No data for this period yet.</p>
+} @else {
+  <svg class="line-chart" [class.line-chart--compact]="compact()" [attr.viewBox]="viewBox" preserveAspectRatio="none">
+    <path class="line-chart__path" [attr.d]="path()" [attr.stroke]="color()" fill="none" />
+    @for (point of points(); track point.bucket) {
+      <circle
+        class="line-chart__dot"
+        [attr.cx]="point.x"
+        [attr.cy]="point.y"
+        r="2.5"
+        [attr.fill]="color()"
+        [matTooltip]="point.bucket + ': ' + point.value"
+      />
+    }
+  </svg>
+}

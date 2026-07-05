@@ -78,6 +78,8 @@ src/
 
 - **Milestone 13 (AI Coach)** reused the `AI Coach` nav item already in Milestone 3's original list (like Habits/Journal before it — no nav change needed, just swapping its placeholder for `loadChildren`). `features/ai/` follows the per-feature convention below with three pages (AI Dashboard at `''`, AI Insights at `insights`, AI Chat at `chat`/`chat/:conversationId` — the optional route param mirrors Journal Detail's `:date/:id` "route param opens a specific existing entity" shape) and eight components (`insight-card`, `insight-feed`, `confidence-badge`, `recommendation-card`, `chat-window`, `chat-message`, `conversation-list`, `insight-filters`). `confidence-badge` wraps the shared `Badge` component the same way Streaks' `consistency-ring`/Goals' `goal-progress-ring` already wrap Habits' `habit-progress-ring` — cross-feature/shared-component reuse, not a new chip implementation. `insight-card`'s "View details" expands the card in place (a local `expanded` signal revealing `content` alongside `summary`) rather than routing to a dedicated detail page — `GET /ai/insights/:id` has no other consumer to justify one, the same "only build a picker/detail view a milestone brief specifically calls for" precedent `event-dialog`'s Advanced Links panel already set in Calendar. Two stores (`AiInsightsStore`, `AiConversationsStore`), both `providedIn: 'root'` like every other feature store in this codebase (including `GoalsStore`, despite `docs/05-architecture.md`'s note on Notifications describing it as "page-scoped" — that description was about which pages actually consume it, not its DI scope). The main Dashboard (`features/dashboard/`) gained `services/dashboard-ai.service.ts` (AI Summary/Productivity Trend stat cards, Top Recommendation, Risk Alerts — all four derived from one `GET /ai/insights` call, the same "one endpoint, several derived widgets" shape every prior Dashboard service already establishes) and a new `components/ai-insights-panel/`, which composes AI Coach's own `recommendation-card` directly (cross-feature component reuse, the same precedent Notifications' `notification-bell` set for the app shell) rather than a second recommendation-rendering implementation.
 
+- **Milestone 14 (Analytics)** reused the `Analytics` nav item already in Milestone 3's original list (like Habits/Journal/AI Coach before it — no nav change needed, just swapping its placeholder for `loadChildren`). `features/analytics/` follows the per-feature convention below with three pages (Analytics Dashboard at `''`, Reports at `reports`, Exports at `exports`) and nine components (`metric-card`, `line-chart`, `bar-chart`, `pie-chart`, `heatmap`, `trend-card`, `comparison-card`, `export-dialog`, `time-range-picker`). Every chart is hand-rolled — an SVG polyline (`line-chart`), CSS flexbox bars (`bar-chart`), a CSS `conic-gradient` donut (`pie-chart`), and a GitHub-contributions-style grid (`heatmap`) — matching this codebase's own "no charting library" convention every prior visual (`goal-timeline`/`journal-calendar`/`mini-calendar`) already establishes; no charting dependency was added. `heatmap` is Analytics' own rebuild of `habit-calendar-heatmap`'s "week-grid, 5-level opacity" shape rather than an import across the feature boundary — reaching into Habits' `components/` folder would violate this doc's own feature-isolation rule, the same precedent Calendar's `drag-drop-event` already set for its own CDK component. `export-dialog` is one of the few dialogs in this codebase that calls its API service directly rather than only collecting input and handing it back (`POST /analytics/export` is a one-shot action with no separate "create" step a hosting page would otherwise own) — the same precedent `event-dialog` already set. A `state/analytics-period.store.ts` (`providedIn: 'root'`, like `NotificationsStore`) holds only the currently-selected chart period — every chart card on a page reads it at once, so a `time-range-picker` change must reflow all of them without each owning its own copy; unlike `GoalsStore`/`NotificationsStore` it holds no fetched data of its own. The main Dashboard (`features/dashboard/`) gained `services/dashboard-analytics.service.ts` (Weekly Productivity/Focus Trend/Habit Trend/Mood Trend, all four derived from the same `period=WEEK` calls to `/analytics/productivity`/`/planner`/`/habits`/`/journal` this feature's own pages already make — the same "one/several endpoint(s), several derived widgets, no dashboard-specific endpoint" shape every prior Dashboard service already establishes) and a new `components/analytics-trends-card/`, which composes Analytics' own `trend-card` directly (cross-feature component reuse, the same precedent Notifications' `notification-bell`/AI Coach's `recommendation-card` already set for the app shell/Dashboard) rather than a second sparkline-card implementation.
+
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
 habits/
@@ -334,6 +336,38 @@ reusing each one's existing read-only exported methods rather than querying thei
 (`StreaksModule`/`GoalsModule` each gained a small additive `exports: [...Service]` specifically for
 this reuse; see `docs/05-architecture.md`'s Milestone 13 note). `AiModule` exports nothing — no
 other module reuses AI Coach yet; it's the current end of this codebase's module dependency chain.
+
+**As implemented (Milestone 14 — `modules/analytics/`):** one module, one controller
+(`AnalyticsController`), and four services — `AnalyticsService` (the read-only composition
+engine every endpoint is built from — see `docs/05-architecture.md`'s Milestone 14 note),
+`AnalyticsReportService` (flattens any domain's typed response into one generic
+`{ headers, rows, summary }` shape for export), `AnalyticsExportService` (resolves the requested
+`ExportFormat`, writes a successful CSV/JSON generation to local disk, persists exactly one
+`AnalyticsExport` row per attempt), and `AnalyticsSnapshotService` (the optional read-through
+cache in front of `AnalyticsService.computeTodayScores` for the Overview endpoint). An
+`exporters/` subdirectory holds the provider-adapter architecture, mirroring `modules/calendar/
+providers/`/`modules/notifications/channels/`/`modules/ai/providers/` exactly:
+`export-generator.interface.ts` (`ExportGenerator`), `csv-export.generator.ts`/`json-export
+.generator.ts` (the two that do anything real), `placeholder-export.generator.ts` (an abstract
+base `pdf-export.generator.ts` extends, always returning an explicit `NOT_IMPLEMENTED` result —
+per this milestone's own "architecture only for PDF" instruction), and
+`export-generator.registry.ts` (maps an `ExportFormat` to its adapter instance). A `utils/` (same
+"framework-free, unit-testable" idea Planner's/Streaks'/AI's own `utils/` already establish) holds
+`analytics-bucket.util.ts` (pure DAY/WEEK/MONTH/YEAR range-resolution and zero-filled bucketing
+math, reusing `planner/utils/timezone.util.ts` directly for its own date arithmetic — the same
+cross-module file-reuse precedent Streaks/Journal/Calendar/Notifications/AI already set for that
+file) and `analytics-scoring.util.ts` (the five 0-100 score formulas, resolving
+`docs/02-missing-requirements.md`'s long-open "Productivity Score — formula TBD" note). `AnalyticsModule`
+imports `HabitsModule`/`StreaksModule`/`GoalsModule`/`JournalModule`/`CalendarModule`/
+`NotificationsModule`/`AiModule` — the widest fan-in of any module so far, one wider than AI's own
+seven — reusing each one's existing read-only exported methods rather than querying their tables
+directly (`CalendarModule`/`AiModule` each gained a small additive `exports: [...Service]`
+specifically for this reuse, the same precedent Streaks/Goals already set for AI in Milestone 13;
+see `docs/05-architecture.md`'s Milestone 14 note). `TasksModule`/`PlannerModule` are deliberately
+not imported — `AnalyticsService` reads their tables directly via `PrismaService` instead, since
+its own arbitrary-date-range time series don't map onto either module's existing read methods.
+`AnalyticsModule` exports nothing — no other module reuses Analytics yet; it's the new end of
+this codebase's module dependency chain.
 
 ## Root-level config
 

@@ -1,0 +1,85 @@
+<section class="reports-page">
+  <header class="reports-page__header">
+    <h1>Reports</h1>
+    <button mat-flat-button (click)="openExportDialog()">
+      <mat-icon>file_download</mat-icon>
+      New Export
+    </button>
+  </header>
+
+  <div class="reports-page__controls">
+    <mat-form-field appearance="outline">
+      <mat-label>Report</mat-label>
+      <mat-select [value]="selectedType()" (selectionChange)="onTypeChange($event.value)">
+        @for (type of reportTypes; track type) {
+          <mat-option [value]="type">{{ reportTypeLabel(type) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (selectedType() !== 'OVERVIEW') {
+      <app-time-range-picker [value]="periodStore.period()" (periodChange)="periodStore.setPeriod($event); onPeriodChange()" />
+    }
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="320px" />
+  } @else {
+    <mat-card appearance="outlined" class="reports-page__card">
+      <mat-card-content>
+        @switch (selectedType()) {
+          @case ('OVERVIEW') {
+            @if (overview(); as data) {
+              <div class="reports-page__metrics">
+                <app-metric-card label="Productivity" value="{{ data.productivityScore }}" icon="trending_up" [score]="data.productivityScore" />
+                <app-metric-card label="Habits" value="{{ data.habitScore }}" icon="repeat" [score]="data.habitScore" />
+                <app-metric-card label="Planner" value="{{ data.plannerScore }}" icon="event_note" [score]="data.plannerScore" />
+                <app-metric-card label="Goals" value="{{ data.goalScore }}" icon="flag" [score]="data.goalScore" />
+                <app-metric-card label="Journal" value="{{ data.journalScore }}" icon="book" [score]="data.journalScore" />
+                <app-metric-card label="Focus Time" value="{{ formatMinutes(data.focusMinutes) }}" icon="timer" />
+                <app-metric-card label="Streak Days" value="{{ data.streakDays }}" icon="local_fire_department" />
+              </div>
+            }
+          }
+          @case ('PRODUCTIVITY') {
+            @if (productivity(); as data) {
+              <app-line-chart [series]="data.series" color="#4f46e5" />
+              <p>{{ data.summary.averageCompletionRate }}% average completion, {{ data.summary.deltaPercent }}% vs. previous period.</p>
+              <p>Best days: {{ data.summary.bestWeekdays.join(', ') || '—' }}</p>
+            }
+          }
+          @case ('HABITS') {
+            @if (habits(); as data) {
+              <app-bar-chart [series]="data.series" color="#16a34a" />
+              <p>{{ data.summary.averageCompletionRate }}% average completion across {{ data.summary.totalActiveHabits }} active habits ({{ data.summary.totalLogs }} logs).</p>
+            }
+          }
+          @case ('GOALS') {
+            @if (goals(); as data) {
+              <app-bar-chart [series]="data.series" color="#f59e0b" />
+              <p>{{ data.summary.activeCount }} active, {{ data.summary.completedCount }} completed ({{ data.summary.completionRate }}% completion rate), {{ data.summary.averageProgressPercent }}% average progress.</p>
+            }
+          }
+          @case ('PLANNER') {
+            @if (planner(); as data) {
+              <app-line-chart [series]="data.series" color="#0ea5e9" />
+              <p>{{ data.summary.averageUtilizationRate }}% utilization, {{ formatMinutes(data.summary.totalFocusMinutes) }} focus time, {{ data.summary.totalBlocksCompleted }} blocks completed.</p>
+            }
+          }
+          @case ('JOURNAL') {
+            @if (journal(); as data) {
+              <app-heatmap [cells]="journalHeatmapCells()" color="#a855f7" />
+              <p>{{ data.summary.consistencyRate }}% consistency. Mood {{ moodTrendLabel(data.summary.moodTrendDirection) }} ({{ data.summary.moodTrendConsecutiveDays }} days), average score {{ data.summary.averageMoodScore ?? '—' }}.</p>
+            }
+          }
+          @case ('CALENDAR') {
+            @if (calendar(); as data) {
+              <app-bar-chart [series]="data.series" color="#ec4899" />
+              <p>{{ data.summary.totalEvents }} events, {{ data.summary.upcomingEvents }} upcoming, busiest day {{ data.summary.busiestWeekday ?? '—' }}.</p>
+            }
+          }
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+</section>

@@ -1,0 +1,11 @@
+<div class="pie-chart">
+  <div class="pie-chart__donut" [style.background]="gradient()"></div>
+  <ul class="pie-chart__legend">
+    @for (entry of legend(); track entry.label) {
+      <li class="pie-chart__legend-item">
+        <span class="pie-chart__swatch" [style.background]="entry.color"></span>
+        {{ entry.label }} — {{ entry.percent }}%
+      </li>
+    }
+  </ul>
+</div>
