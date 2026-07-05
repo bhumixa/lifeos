@@ -63,6 +63,19 @@
 // (attempts/nextAttempt/lastError/status), the seam a future BullMQ worker process would drain —
 // see the comment on NotificationQueue for why, unlike CalendarSync's append-only log, this one
 // row is mutated in place across retries.
+// Milestone 13 (AI Coach & Personal Insights) adds AiInsight/AiConversation/AiMessage. This is a
+// strictly read-only analysis layer — modules/ai composes Tasks/Habits/Planner/Streaks/Goals/
+// Journal/Notifications' own exported, read-only methods (never their write paths, and never
+// GoalsService.getProgress/StreaksService.getStatistics specifically, since both have a persisting
+// side effect — see the comment on AiInsight) to compute metrics, then an AiProvider (MockAiProvider
+// today; OpenAiProvider/AnthropicProvider/GoogleAiProvider are unimplemented placeholders, the same
+// "real interface, one real adapter, honest NOT_IMPLEMENTED others" shape Calendar/Notifications
+// already established) turns those metrics into human-readable insight text. AiInsight rows are
+// this analysis's durable output; AiConversation/AiMessage store the AI Chat feature's turn-by-turn
+// history. `StreaksModule`/`GoalsModule` each gained a one-line additive `exports: [...Service]` (no
+// existing behavior changed) so AiAnalysisService can reuse them the same "reuse services" way every
+// prior fan-in module (Planner/Streaks/Goals) already does — see docs/05-architecture.md's
+// Milestone 13 note for the full rationale.
 
 generator client {
   provider = "prisma-client-js"
@@ -114,6 +127,8 @@ model User {
   calendars              Calendar[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
+  aiInsights             AiInsight[]
+  aiConversations        AiConversation[]
 
   @@map("users")
 }
@@ -1105,4 +1120,128 @@ model NotificationQueue {
 
   @@index([status, nextAttempt])
   @@map("notification_queues")
+}
+
+// Which domain an AiInsight analyzes. Six correspond 1:1 to the six read-only domains
+// AiAnalysisService composes (Tasks/Habits feed HABITS+PRODUCTIVITY, Goals, Planner, Journal,
+// Streaks); PRODUCTIVITY is the one cross-cutting type with no single owning module (it blends
+// Task/Planner/Habit completion counts by day/weekday) — the same "not every type maps to one
+// module" shape Notification's own SYSTEM value already has. SYSTEM is reserved for a future
+// coach-level notice (e.g. onboarding, "no data yet") that isn't a per-domain analysis result;
+// nothing in this milestone generates one yet.
+enum InsightType {
+  PRODUCTIVITY
+  HABITS
+  GOALS
+  PLANNER
+  JOURNAL
+  STREAKS
+  SYSTEM
+}
+
+// ACTIVE is the only state anything in this milestone writes — ARCHIVED/DISMISSED exist so
+// GET /ai/insights can filter on them and a future milestone can add the obvious PATCH
+// endpoint (the same "documented, not-yet-built seam" shape Calendar's recurrence.util.ts and
+// Notification's CalendarEventStartingEvent already established) without a schema change.
+enum InsightStatus {
+  ACTIVE
+  ARCHIVED
+  DISMISSED
+}
+
+enum AiRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// The durable output of one analysis run — one row per generated insight, never mutated by the
+// analysis engine itself (only a future dismiss/archive endpoint would ever update `status`, per
+// the comment on InsightStatus). `sourceData` is the metrics AiAnalysisService computed and handed
+// to the provider (e.g. `{ completionRateThisWeek, completionRateLastWeek, deltaPercent }` for a
+// PRODUCTIVITY insight) — stored verbatim so the Dashboard's Productivity Trend/Risk Alert widgets
+// can read structured numbers directly instead of parsing `content`'s prose, and so a human can
+// audit exactly what data a given insight was based on. Not encrypted/sensitive the way
+// JournalEntry.content is — these are read-only derived summaries of a user's own already-stored
+// productivity data, not free-form personal reflection.
+//
+// `confidence` is a plain 0.0-1.0 float the provider self-reports (MockAiProvider derives it from
+// how much source data backed the computation — e.g. a 2-week trend is more confident than a
+// 3-day one), not a stored/enforced accuracy metric.
+//
+// `generatedAt` and `createdAt` are deliberately two separate columns even though MockAiProvider
+// always writes the same instant to both today: `createdAt` is "when this row was written" (the
+// convention every model in this schema follows), while `generatedAt` is "when the underlying
+// analysis was actually performed" — a future async provider (a real OpenAI/Anthropic/Google
+// integration queued as a background job) could create the row when the request is accepted but
+// only set `generatedAt` once the provider actually responds, the same reason `Notification` keeps
+// `scheduledFor` distinct from `createdAt`.
+//
+// No `deletedAt` — insights are disposable, re-derivable analysis output (the source Task/Habit/
+// Goal/etc. rows remain the record of truth), not the irreplaceable user-authored content
+// docs/06-database-design.md's soft-delete principle protects, the same reasoning already applied
+// to Notification/Calendar/PlannerBlock.
+model AiInsight {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       InsightType
+  title      String
+  summary    String
+  content    String
+  confidence Float
+  status     InsightStatus @default(ACTIVE)
+  sourceData Json?
+
+  generatedAt DateTime
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, status])
+  @@index([userId, type])
+  @@index([userId, generatedAt])
+  @@map("ai_insights")
+}
+
+// A user's own AI Chat thread — `title` is nullable and left unset until AiConversationService
+// derives one from the first user message (truncated), the same "auto-derived, not required at
+// creation" shape as leaving it blank being a valid state. Hard delete would be the natural choice
+// (disposable, like Notification) but no delete endpoint is built in this milestone at all — see
+// docs/API.md's AI Coach section — so this is a documented gap, not a modeling decision either way.
+model AiConversation {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AiMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("ai_conversations")
+}
+
+// One row per chat turn. No `userId` of its own — like RoutineStep/GoalMilestone, it's only ever
+// reached through its parent AiConversation, ownership enforced by joining `conversation: { userId
+// }`. `role` follows the USER/ASSISTANT/SYSTEM shape every LLM chat-completion API already uses
+// (a future OpenAI/Anthropic/Google provider maps directly onto it); this milestone's MockAiProvider
+// only ever produces ASSISTANT messages, but SYSTEM is modeled now so a future system-prompt-as-a
+// stored-message design doesn't require a migration.
+model AiMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    AiRole
+  content String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
 }

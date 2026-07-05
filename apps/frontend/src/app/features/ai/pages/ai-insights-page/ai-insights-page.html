@@ -1,0 +1,25 @@
+<div class="ai-insights-page">
+  <header class="ai-insights-page__header">
+    <h1>AI Insights</h1>
+    <button type="button" mat-flat-button [disabled]="generating()" (click)="generate()">
+      <mat-icon>auto_awesome</mat-icon>
+      {{ generating() ? 'Generating…' : 'Generate Insights' }}
+    </button>
+  </header>
+
+  <app-insight-filters (filterChanged)="onFilterChanged($event)" (cleared)="onCleared()" />
+
+  @if (error()) {
+    <p class="ai-insights-page__error">{{ error() }}</p>
+  }
+
+  <app-insight-feed [insights]="insights()" [loading]="loading()" />
+
+  <mat-paginator
+    [length]="meta().total"
+    [pageSize]="meta().pageSize"
+    [pageIndex]="meta().page - 1"
+    [pageSizeOptions]="[10, 20, 50]"
+    (page)="onPage($event)"
+  />
+</div>

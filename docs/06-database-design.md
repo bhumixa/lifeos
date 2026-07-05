@@ -713,6 +713,80 @@ Notification
 >   `NotificationQueue` backs `NotificationQueueService.processDue`'s own "what's due right now"
 >   query.
 
+> **Added in Milestone 13 — AI Coach & Personal Insights (not this section's original
+> `AiInteraction` sketch — that table was cost/token telemetry for an eventual AI provider call;
+> this milestone's own brief asks for insight *generation* and *chat history* instead, and
+> `AiInteraction` was never implemented in any prior milestone, so there's no migration/back-compat
+> concern in diverging from it)**:
+>
+> ```
+> AiInsight
+>   id            uuid PK
+>   userId        FK -> User
+>   type          enum(PRODUCTIVITY, HABITS, GOALS, PLANNER, JOURNAL, STREAKS, SYSTEM)
+>   title         string
+>   summary       string
+>   content       string
+>   confidence    float
+>   status        enum(ACTIVE, ARCHIVED, DISMISSED), default ACTIVE
+>   sourceData    json, nullable
+>   generatedAt   timestamp
+>   expiresAt     timestamp, nullable
+>   createdAt
+>
+> AiConversation
+>   id         uuid PK
+>   userId     FK -> User
+>   title      string, nullable
+>   createdAt / updatedAt
+>
+> AiMessage
+>   id              uuid PK
+>   conversationId  FK -> AiConversation
+>   role            enum(USER, ASSISTANT, SYSTEM)
+>   content         string
+>   createdAt
+> ```
+>
+> - **`AiInsight` is the durable output of one read-only analysis run** — a snapshot of what
+>   `AiAnalysisService` computed and what the active `AiProvider` said about it, never mutated by
+>   the analysis engine itself. `sourceData` is the metrics payload verbatim (e.g.
+>   `{ completionRateThisWeek, completionRateLastWeek, deltaPercent, bestWeekdays, flags }` for a
+>   PRODUCTIVITY insight) — stored so the Dashboard's widgets can read structured numbers directly
+>   instead of parsing `content`'s prose, and so a human can audit exactly what data an insight was
+>   based on. `flags` (inside `sourceData`, not its own column) is the one generic, cross-type
+>   signal every insight sets consistently — `'risk'` is what the Dashboard's Risk Alerts widget
+>   filters on, without a dedicated boolean column or per-type parsing rule.
+> - **`confidence` is a plain 0.0-1.0 float**, self-reported by the provider (`MockAiProvider`
+>   derives it from how much source history backed the computation — e.g. a 14-day trend with only
+>   3 days of account history gets a low score) — not a stored/enforced accuracy metric.
+> - **`generatedAt` and `createdAt` are separate columns** even though `MockAiProvider` always
+>   writes the same instant to both today — `createdAt` is "when this row was written" (the
+>   convention every model in this schema follows), `generatedAt` is "when the analysis was actually
+>   performed," which could diverge for a future async real-provider integration the same way
+>   `Notification.scheduledFor` already diverges from its own `createdAt`.
+> - **No `deletedAt`** — insights are disposable, re-derivable analysis output (the source Task/
+>   Habit/Goal/etc. rows remain the record of truth), not the irreplaceable user-authored content
+>   this doc's soft-delete principle protects, the same reasoning already applied to Notification.
+> - **`InsightStatus` (ACTIVE/ARCHIVED/DISMISSED) has no write path yet** — `GET /ai/insights` can
+>   filter on it (defaulting to ACTIVE), but this milestone never writes ARCHIVED/DISMISSED; a
+>   documented, not-yet-built seam for an obvious future dismiss/archive endpoint, the same shape
+>   Calendar's `recurrence.util.ts` already established for "recurring event preparation."
+> - **`AiConversation`/`AiMessage` mirror a standard chat-completion API's own shape** (`role` is
+>   USER/ASSISTANT/SYSTEM, the same three values every real LLM provider already uses) so a future
+>   OpenAI/Anthropic/Google integration maps onto it directly. `AiMessage` has no `userId` of its
+>   own — like `RoutineStep`/`GoalMilestone`, it's only ever reached through its parent
+>   `AiConversation`, ownership enforced by joining `conversation: { userId }`.
+> - **No field-level encryption on `AiMessage.content`** — despite chat content potentially
+>   touching the same sensitive territory as journal entries, this milestone's own brief doesn't
+>   ask for it, and `JournalEntry.content`/`mood` already carry the same honestly-documented gap
+>   (see this doc's Milestone 10 note) rather than a silently-added encryption layer here alone.
+> - **Indexes**: `(userId, status)`, `(userId, type)`, and `(userId, generatedAt)` on `AiInsight` —
+>   the dominant "this user's insights, filtered/sorted for the Dashboard and AI Insights page"
+>   query patterns `AiInsightsService.findAll` runs. `(userId, updatedAt)` on `AiConversation` for
+>   "this user's conversations, most-recently-active first" (`AiConversationService.findAll`).
+>   `(conversationId, createdAt)` on `AiMessage` for its own ordered-history reads.
+
 ### Analytics & gamification
 
 > **Superseded in part by Milestone 8** — see the note under "Habits & streaks" above.

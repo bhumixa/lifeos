@@ -1,0 +1,31 @@
+<div class="ai-dashboard-page">
+  <header class="ai-dashboard-page__header">
+    <div>
+      <h1>AI Coach</h1>
+      <p>Read-only, advisory analysis of your own tasks, habits, goals, planner, journal, and streaks.</p>
+    </div>
+    <div class="ai-dashboard-page__actions">
+      <button type="button" mat-stroked-button routerLink="/ai-coach/chat">
+        <mat-icon>forum</mat-icon>
+        Open Chat
+      </button>
+      <button type="button" mat-flat-button [disabled]="generating()" (click)="generate()">
+        <mat-icon>auto_awesome</mat-icon>
+        {{ generating() ? 'Generating…' : 'Generate Insights' }}
+      </button>
+    </div>
+  </header>
+
+  <section class="ai-dashboard-page__recommendation">
+    <h2>Top Recommendation</h2>
+    <app-recommendation-card [insight]="topRecommendation()" />
+  </section>
+
+  <section class="ai-dashboard-page__feed">
+    <div class="ai-dashboard-page__feed-header">
+      <h2>Recent Insights</h2>
+      <a routerLink="/ai-coach/insights">View all</a>
+    </div>
+    <app-insight-feed [insights]="insights()" [loading]="loading()" />
+  </section>
+</div>

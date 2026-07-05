@@ -1,0 +1,17 @@
+<div class="ai-chat-page">
+  <aside class="ai-chat-page__sidebar">
+    <app-conversation-list
+      [conversations]="conversations()"
+      [activeId]="activeConversation()?.id ?? null"
+      (selected)="select($event)"
+      (newConversation)="startNew()"
+    />
+  </aside>
+
+  <main class="ai-chat-page__main">
+    @if (error()) {
+      <p class="ai-chat-page__error">{{ error() }}</p>
+    }
+    <app-chat-window [messages]="messages()" [sending]="sending()" (sent)="send($event)" />
+  </main>
+</div>

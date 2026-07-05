@@ -1,0 +1,26 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>AI Coach</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="ai-insights-panel">
+    @if (loading()) {
+      <app-skeleton height="72px" />
+    } @else {
+      <app-recommendation-card [insight]="topRecommendation()" />
+
+      @if (riskAlerts().length > 0) {
+        <ul class="ai-insights-panel__risks">
+          @for (risk of riskAlerts(); track risk.id) {
+            <li>
+              <mat-icon>warning</mat-icon>
+              <span>{{ risk.summary }}</span>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </mat-card-content>
+  <mat-card-actions>
+    <a mat-button routerLink="/ai-coach">Open AI Coach</a>
+  </mat-card-actions>
+</mat-card>

@@ -1,0 +1,15 @@
+@if (insight(); as top) {
+  <div class="recommendation-card">
+    <mat-icon class="recommendation-card__icon">{{ typeIcons[top.type] }}</mat-icon>
+    <div>
+      <span class="recommendation-card__title">{{ top.title }}</span>
+      <p class="recommendation-card__summary">{{ top.summary }}</p>
+    </div>
+  </div>
+} @else {
+  <app-empty-state
+    icon="psychology"
+    title="No recommendation yet"
+    message="Generate an insight from the AI Coach to see your top recommendation here."
+  />
+}

@@ -76,6 +76,8 @@ src/
 
 - **Milestone 12 (Notifications)** added a new nav item (`Notifications`, like Streaks/Goals/Calendar before it — no pre-existing placeholder pointed at `/notifications`). `features/notifications/` follows the per-feature convention below with two pages (Notification Center at `''`, Notification Settings at `settings`) and eight components (`notification-bell`, `notification-badge`, `notification-list`, `notification-card`, `notification-filter`, `notification-preferences`, `notification-timeline`, `unread-counter`). Unlike every prior feature store (`GoalsStore`, list-page-scoped), `NotificationsStore` is `providedIn: 'root'` — see its class doc for why: the Navbar's `NotificationBell` and the Notification Center page both need live unread state at once, so a mark-read/dismiss from either place must reflect in the other. `notification-bell` is the first component a *feature* exports specifically for the app shell (`layout/navbar/navbar.ts`) to import directly, replacing Navbar's static "No notifications yet." placeholder menu — the same "layout composes a sibling feature's exported component" reasoning `DashboardCalendarService` already established for cross-feature service composition, just applied to the shell instead of another feature page. `notification-timeline` groups Today/Yesterday/Earlier, a hand-rolled grouped list (no charting/timeline library) following `journal-calendar`'s/`goal-timeline`'s own precedent exactly; `notification-list` is the shared rendering primitive both `notification-timeline`'s per-group sections and the Dashboard's `recent-activity` (via its `compact` input) compose, rather than two separate list implementations. The main Dashboard (`features/dashboard/`) gained `services/dashboard-notifications.service.ts` (Unread Notifications, Upcoming Reminders, and the data feeding `recent-activity`, derived from `GET /notifications/unread` plus two `GET /notifications` list calls — the same "one/two endpoint(s), several derived widgets" shape every prior Dashboard service already establishes) and its `recent-activity` component, previously a pure empty-state placeholder since Milestone 3, is real for the first time — every other module's completions already flow into a Notification, so the most recent few *are* recent activity app-wide with no new dashboard-specific endpoint.
 
+- **Milestone 13 (AI Coach)** reused the `AI Coach` nav item already in Milestone 3's original list (like Habits/Journal before it — no nav change needed, just swapping its placeholder for `loadChildren`). `features/ai/` follows the per-feature convention below with three pages (AI Dashboard at `''`, AI Insights at `insights`, AI Chat at `chat`/`chat/:conversationId` — the optional route param mirrors Journal Detail's `:date/:id` "route param opens a specific existing entity" shape) and eight components (`insight-card`, `insight-feed`, `confidence-badge`, `recommendation-card`, `chat-window`, `chat-message`, `conversation-list`, `insight-filters`). `confidence-badge` wraps the shared `Badge` component the same way Streaks' `consistency-ring`/Goals' `goal-progress-ring` already wrap Habits' `habit-progress-ring` — cross-feature/shared-component reuse, not a new chip implementation. `insight-card`'s "View details" expands the card in place (a local `expanded` signal revealing `content` alongside `summary`) rather than routing to a dedicated detail page — `GET /ai/insights/:id` has no other consumer to justify one, the same "only build a picker/detail view a milestone brief specifically calls for" precedent `event-dialog`'s Advanced Links panel already set in Calendar. Two stores (`AiInsightsStore`, `AiConversationsStore`), both `providedIn: 'root'` like every other feature store in this codebase (including `GoalsStore`, despite `docs/05-architecture.md`'s note on Notifications describing it as "page-scoped" — that description was about which pages actually consume it, not its DI scope). The main Dashboard (`features/dashboard/`) gained `services/dashboard-ai.service.ts` (AI Summary/Productivity Trend stat cards, Top Recommendation, Risk Alerts — all four derived from one `GET /ai/insights` call, the same "one endpoint, several derived widgets" shape every prior Dashboard service already establishes) and a new `components/ai-insights-panel/`, which composes AI Coach's own `recommendation-card` directly (cross-feature component reuse, the same precedent Notifications' `notification-bell` set for the app shell) rather than a second recommendation-rendering implementation.
+
 **Per-feature folder convention** (e.g., `features/habits/`):
 ```
 habits/
@@ -305,6 +307,33 @@ read, not a whole sibling module, for one query" reasoning every optional-cross-
 uses. `NotificationsService`/`NotificationSchedulerService`/`NotificationQueueService` are exported
 so a future `main.worker.ts` background process (or an AI Coach module wanting to surface a
 notification) can reuse them directly.
+
+**As implemented (Milestone 13 — `modules/ai/`):** one module, one controller (`AiController`),
+and four services — `AiInsightsService` (generate/list/get, dispatches to the active provider's
+right method per `InsightType`), `AiConversationService` (chat/list/get/create — the only two
+writes this whole module performs are its own `AiMessage`/`AiConversation` rows), `AiAnalysisService`
+(the read-only metrics-gathering "analysis engine" — see `docs/05-architecture.md`'s Milestone 13
+note for the full list of sibling-service methods it does and deliberately doesn't call), and
+`AiPromptService` (builds the natural-language instruction a real provider would receive alongside
+the computed metrics — unused by `MockAiProvider` today, but attached to every call so a future
+real integration doesn't need this module's request shape to change). A `providers/` subdirectory
+holds the provider-adapter architecture, mirroring `modules/calendar/providers/`/`modules/
+notifications/channels/` exactly: `ai-provider.interface.ts` (`AiProvider`), `mock-ai.provider.ts`
+(the only one that does anything real), `placeholder-ai.provider.ts` (an abstract base every
+non-MOCK adapter extends, so `openai.provider.ts`/`anthropic.provider.ts`/`google-ai.provider.ts`
+each add only a display name), and `ai-provider.registry.ts` (maps a provider name to its adapter
+instance, `getActive()` hardcoded to `MOCK`). A `utils/` (same "framework-free, unit-testable" idea
+Planner's/Streaks'/Notifications' own `utils/` already establish) holds `ai-metrics.util.ts` (pure
+trend/confidence/mood/goal-risk math, reusing `planner/utils/timezone.util.ts` directly for its own
+date arithmetic — the same cross-module file-reuse precedent Streaks/Journal/Calendar/Notifications
+already set for that file) and `insight-templates.util.ts` (the pure functions that turn computed
+metrics into `MockAiProvider`'s human-readable `{title, summary, content}`). `AiModule` imports
+`TasksModule`/`HabitsModule`/`PlannerModule`/`StreaksModule`/`GoalsModule`/`JournalModule`/
+`NotificationsModule` — the widest fan-in of any module so far, one wider than Goals' own four —
+reusing each one's existing read-only exported methods rather than querying their tables directly
+(`StreaksModule`/`GoalsModule` each gained a small additive `exports: [...Service]` specifically for
+this reuse; see `docs/05-architecture.md`'s Milestone 13 note). `AiModule` exports nothing — no
+other module reuses AI Coach yet; it's the current end of this codebase's module dependency chain.
 
 ## Root-level config
 

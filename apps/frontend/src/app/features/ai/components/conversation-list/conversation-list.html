@@ -1,0 +1,26 @@
+<div class="conversation-list">
+  <button type="button" mat-stroked-button class="conversation-list__new" (click)="newConversation.emit()">
+    <mat-icon>add</mat-icon>
+    New conversation
+  </button>
+
+  @if (conversations().length === 0) {
+    <app-empty-state icon="forum" title="No conversations yet" message="Start a new one above." />
+  } @else {
+    <ul class="conversation-list__items">
+      @for (conversation of conversations(); track conversation.id) {
+        <li>
+          <button
+            type="button"
+            class="conversation-list__item"
+            [class.conversation-list__item--active]="conversation.id === activeId()"
+            (click)="selected.emit(conversation.id)"
+          >
+            <span class="conversation-list__title">{{ conversation.title || 'New Conversation' }}</span>
+            <span class="conversation-list__count">{{ conversation.messageCount }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

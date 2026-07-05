@@ -273,6 +273,58 @@ failure — is never invoked automatically in this milestone, the same "document
 not-yet-scheduled seam" shape Calendar's own `recurrence.util.ts` already established; see the note
 on background processing immediately below for where it belongs once one exists.
 
+**Milestone 13 (AI Coach & Personal Insights) is the third module to use the provider/adapter
+shape this doc anticipated since early milestones, and the first one built as a strictly read-only
+analysis layer rather than a feature that writes its own domain's data.** `AiProvider`
+(`generateInsight`/`analyzeHabits`/`analyzeGoals`/`analyzePlanner`/`analyzeJournal`/`chat`) follows
+`ICalendarProvider`/`INotificationChannel`'s exact template: one small interface, a registry
+(`AiProviderRegistry`) keyed by name, and adapters safe to call even when unimplemented.
+`MockAiProvider` is the one that does anything real — it never calls an external API; it
+deterministically formats the metrics `AiAnalysisService` computed into readable text
+(`utils/insight-templates.util.ts`), which is what this milestone's "analysis engine" actually is:
+real statistical analysis over the user's own data, presented through a provider-shaped seam so a
+real LLM can drop in later without `AiInsightsService`/`AiConversationService` changing at all.
+`OpenAiProvider`/`AnthropicProvider`/`GoogleAiProvider` all extend a shared `PlaceholderAiProvider`
+base (mirroring `PlaceholderNotificationChannel`/`RemoteCalendarProvider` exactly) that always
+returns an explicit `NOT_IMPLEMENTED` result — never a thrown exception, never a silent no-op.
+`AiProviderRegistry.getActive()` is hardcoded to `MOCK`, per this milestone's explicit instruction
+not to connect to a real OpenAI/Anthropic/Google API; there is no env-driven provider selection.
+
+**"AI Coach never modifies data" is enforced by what `AiAnalysisService` chooses to call, not by a
+runtime guard.** It composes `TasksService`/`HabitsService`/`PlannerService`/`StreaksService`/
+`GoalsService`/`JournalService`/`NotificationsService` — the seven domains this milestone's own
+"generate insights from" list names — but only ever through each service's own read-only methods
+(`findAll`, `summary`, `today`, `getOverview`, `getToday`, `history`, `findUnread`, `countCompleted`,
+and similar). It deliberately never calls `StreaksService.getStatistics` (which evaluates and
+persists newly-unlocked achievements as a side effect, per Milestone 8) or `GoalsService.getProgress`
+(which persists a refreshed `currentValue`, per Milestone 9) — both are genuine reads from a
+caller's perspective, but both write, and this milestone's own business rules rule out even an
+*indirect* write from generating an insight. `StreaksModule`/`GoalsModule` each gained a one-line
+additive `exports: [...Service]` — the only change to already-shipped modules this milestone makes,
+purely additive with no behavior change for any existing consumer — so `AiModule` can import them
+the same "reuse services, don't duplicate the query" way Planner/Streaks/Goals already do for each
+other. Every metric this milestone needs that no existing service method exposes (week-over-week
+completion-rate trends, weekday/hour-of-day distributions, a goal's schedule-risk relative to its
+target date) is computed via direct, read-only `PrismaService` queries scoped by `userId` inside
+`AiAnalysisService` itself — the same "raw read for a cross-cutting query that doesn't belong to
+one sibling module's own read shape" reasoning Journal/Calendar/Notifications already established
+for their own optional-link ownership checks, extended here from ownership checks to analytics.
+
+**`InsightType` splits into two routing groups on `AiProvider`.** HABITS/GOALS/PLANNER/JOURNAL each
+map 1:1 to a dedicated method; PRODUCTIVITY/STREAKS/SYSTEM are cross-cutting (no single owning
+module) and share the general-purpose `generateInsight`. `AiInsightsService.generate` with no
+`type` requested generates one insight for each of the first six — SYSTEM is excluded, reserved for
+a future coach-level notice this milestone doesn't need.
+
+**AI Chat reuses the same provider seam, not a separate one.** `AiConversationService.chat` resolves
+or creates an `AiConversation`, persists the user's `AiMessage`, calls `provider.chat()` with the
+trailing history (`AiPromptService.buildChatMessages` prepends a fresh SYSTEM-role safety/advisory
+prompt on every call rather than persisting one), and persists the assistant's reply.
+`MockAiProvider.chat` never claims to have taken an action on the user's behalf — every reply
+explicitly frames itself as advisory only, per this milestone's "no autonomous actions" rule. The
+only writes this whole module ever performs, in total, are to its own `AiInsight`/`AiConversation`/
+`AiMessage` tables.
+
 ## Background processing (BullMQ + Redis)
 
 A **separate worker process** (same repo, `main.worker.ts` entrypoint, deployed as a second Railway service) consumes queues so slow/scheduled work never blocks API request latency:

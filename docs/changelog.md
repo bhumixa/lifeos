@@ -6,6 +6,106 @@ architecture-relevant decisions specific to that milestone — the "why," not a 
 reconstructed from the codebase where the historical detail is unambiguous, and kept brief where
 it isn't.
 
+## Milestone 13 — AI Coach & Personal Insights (2026-07-05)
+
+Strictly read-only AI Coach: backend `modules/ai` (7 endpoints — insights list/get/generate, chat,
+conversations list/get/create) composing Tasks/Habits/Planner/Streaks/Goals/Journal/Notifications'
+own existing read-only methods into six kinds of insight (Productivity, Habits, Goals, Planner,
+Journal, Streaks), plus a turn-by-turn AI Chat backed by the same provider seam. A full frontend
+feature (AI Dashboard, AI Insights, AI Chat; 8 components — Insight Card, Insight Feed, Confidence
+Badge, Recommendation Card, Chat Window, Chat Message, Conversation List, Insight Filters), and four
+new Dashboard widgets (AI Summary/Productivity Trend stat cards, Top Recommendation, Risk Alerts) —
+all derived from the existing `GET /ai/insights` call, no dashboard-specific endpoint.
+
+Key decisions:
+- **The provider/adapter pattern Calendar (Milestone 11) and Notifications (Milestone 12) already
+  established is reused exactly, for its third time**: `AiProvider` (`generateInsight`/
+  `analyzeHabits`/`analyzeGoals`/`analyzePlanner`/`analyzeJournal`/`chat`) is the interface every
+  backend implements; `MockAiProvider` is the one that does anything real (the same role
+  `LocalCalendarProvider`/`InAppChannel` already play among their own siblings), formatting the
+  metrics `AiAnalysisService` computed into readable text via `utils/insight-templates.util.ts`.
+  `OpenAiProvider`/`AnthropicProvider`/`GoogleAiProvider` all extend a shared
+  `PlaceholderAiProvider` base that returns an explicit `NOT_IMPLEMENTED` result — never a thrown
+  exception, never a silent no-op — the exact shape `RemoteCalendarProvider`/
+  `PlaceholderNotificationChannel` already set. `AiProviderRegistry.getActive()` is hardcoded to
+  `MOCK`, per this milestone's explicit "do not connect to a real OpenAI/Anthropic/Google API"
+  instruction — no env-driven provider selection exists yet.
+- **"AI Coach never modifies data" is enforced by omission, not by a runtime guard**:
+  `AiAnalysisService` only ever calls a sibling service's own read-only methods —
+  `TasksService.findAll`/`countCompleted`, `HabitsService.summary`, `PlannerService.today`,
+  `StreaksService.getOverview`/`getToday`, `GoalsService.findAll`, `JournalService.history`,
+  `NotificationsService.findUnread` — and deliberately *never* `StreaksService.getStatistics` or
+  `GoalsService.getProgress`, since both of those have a persisting side effect (achievement
+  unlocking; a refreshed, written-back `currentValue`) that would make an insight-generation request
+  an indirect write. Every metric this milestone needs that no existing method exposes (week-over-
+  week completion-rate trends, weekday/hour-of-day distributions, goal schedule-risk) is computed via
+  direct, read-only `PrismaService` queries scoped by `userId` inside `AiAnalysisService` itself —
+  the same "raw read for a cross-cutting query that doesn't belong to one sibling module's own read
+  shape" reasoning Journal/Calendar/Notifications already established for their own optional-link
+  ownership checks, applied here to analytics instead of ownership.
+- **`StreaksModule`/`GoalsModule` each gained a one-line additive `exports: [...Service]`** — the
+  only change to already-shipped modules this milestone makes, and purely additive (no existing
+  behavior, test, or consumer changes) — so `AiModule` can import them the same "reuse services,
+  don't duplicate the query" way every prior fan-in module (Planner/Streaks/Goals) already does.
+  Every other module `AiAnalysisService` reuses (Tasks/Habits/Planner/Journal/Notifications) already
+  exported its service for exactly this kind of future reuse.
+- **`InsightType` splits into two routing groups**: HABITS/GOALS/PLANNER/JOURNAL each get a
+  dedicated `AiProvider` method (matching one owning domain 1:1); PRODUCTIVITY/STREAKS/SYSTEM share
+  the general-purpose `generateInsight`, since they're cross-cutting analyses with no single owning
+  module. `POST /ai/insights/generate` with no `type` generates one insight for each of the first
+  six (SYSTEM excluded — it's a general coaching note reserved for a future explicit use, not
+  something auto-generated today).
+- **`AiInsight.sourceData` is the metrics payload verbatim, not just a debugging aid** — every
+  template function returns `{title, summary, content, confidence}` derived from a `sourceData`
+  shape that's also persisted on the row, so the Dashboard's Productivity Trend/Risk Alerts widgets
+  read structured numbers (`deltaPercent`, `flags`) directly instead of parsing `content`'s prose.
+  `flags: ['risk']` is the one generic, cross-type signal every template sets consistently — the
+  Risk Alerts widget filters on it without a dedicated boolean column or per-type parsing rule.
+- **`generatedAt` is a separate column from `createdAt`**, even though `MockAiProvider` always
+  writes the same instant to both today — a future async real-provider integration could create the
+  row when the request is accepted but only set `generatedAt` once the provider actually responds,
+  the same reason `Notification` keeps `scheduledFor` distinct from `createdAt`.
+- **No delete/dismiss/archive endpoint exists yet** — `InsightStatus` (ACTIVE/ARCHIVED/DISMISSED) is
+  modeled and `GET /ai/insights` can filter on it, but nothing in this milestone ever writes
+  ARCHIVED/DISMISSED; a documented, not-yet-built seam, the same shape Calendar's
+  `recurrence.util.ts`/Notification's `CalendarEventStartingEvent` already established elsewhere.
+- **Chat has no persisted system prompt** — `AiPromptService.buildChatSystemPrompt` builds the
+  safety/advisory framing fresh on every call and prepends it to the trailing history
+  (`AiConversationService`'s own `CHAT_HISTORY_LIMIT`, 20 messages) rather than storing it as an
+  `AiMessage` row; `AiRole.SYSTEM` is modeled on the schema for a future provider that might want one
+  stored, but nothing writes it today. `MockAiProvider.chat` never claims to have taken an action —
+  every reply explicitly frames itself as advisory, per this milestone's "no autonomous actions"
+  business rule.
+- **Frontend AI Dashboard/Insights/Chat reuse the `AI Coach` nav item already in Milestone 3's
+  original list** — like Habits/Journal before it, no nav change was needed, just swapping the
+  `FeaturePlaceholder` for a real `loadChildren`. `InsightCard`'s "View details" expands the card in
+  place to show `content` alongside `summary` rather than routing to a separate detail page — no
+  other consumer of `GET /ai/insights/:id` exists yet to justify one. The Dashboard's
+  `AiInsightsPanel` composes AI Coach's own `RecommendationCard` directly (cross-feature component
+  reuse, the same precedent Notifications' `NotificationBell` already set for the app shell) rather
+  than a second recommendation-rendering implementation.
+- **Verification**: 63 new backend unit tests (metrics/template utils, provider registry and
+  placeholder-provider behavior, analysis-service business-rule enforcement and cross-user scoping,
+  insights-service generate/list/filter/cross-user isolation, conversation-service chat/history/
+  cross-user isolation, controller delegation) plus the existing 472 all pass (535 total); 20 new
+  frontend unit tests (API service, both stores, display utils, dashboard service) plus the existing
+  318 all pass (338 total). Backend and frontend builds, Prisma migration, and Swagger generation all
+  verified clean. Live end-to-end verification (Playwright against the running app): registered a
+  user, generated all six insights from a blank account (each rendered a graceful "not enough data
+  yet" message), logged and completed a habit and regenerated Habits/Streaks insights (correctly
+  detected the before-10-AM completion and the new 1-day streak), started and continued an AI Chat
+  conversation, confirmed cross-user isolation (a second user gets a 404 on the first user's
+  conversation/insights, not a 403), and confirmed the Dashboard's four new AI widgets render with
+  real data.
+- **Remaining work**: real OpenAI/Anthropic/Google AI provider integrations (all three are
+  documented `NOT_IMPLEMENTED` placeholders by design this milestone); a dismiss/archive endpoint for
+  `AiInsight` (the `InsightStatus` enum and list-side filtering exist, but nothing writes
+  ARCHIVED/DISMISSED yet); an insight-expiry sweep job that actually acts on `expiresAt` (the column
+  is written and returned, but no job reads it — `GET /ai/insights` doesn't exclude expired rows
+  automatically); the AI Chat page doesn't yet update its own URL to the newly-created conversation
+  id after the first message in a brand-new conversation (the conversation itself is created and
+  usable, just not reflected in the address bar until the next navigation).
+
 ## Milestone 12 — Notification Engine (2026-07-04)
 
 Production-ready, event-driven Notification Engine: backend `modules/notifications` (8 endpoints —

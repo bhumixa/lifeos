@@ -22,5 +22,11 @@ import { FreezeDaysService } from './freeze-days.service.js';
     FreezeDaysController,
   ],
   providers: [StreaksService, AchievementsService, FreezeDaysService],
+  // Exported so AiModule (Milestone 13) can reuse StreaksService's own read-only
+  // getOverview/getToday for STREAKS insight analysis — deliberately not getStatistics, since that
+  // method has a persisting side effect (achievement unlocking), which AI Coach's "never modifies
+  // data" business rule rules out. A small, additive export — no existing behavior changes — the
+  // same "export for a documented future reuse" convention every other module already follows.
+  exports: [StreaksService],
 })
 export class StreaksModule {}

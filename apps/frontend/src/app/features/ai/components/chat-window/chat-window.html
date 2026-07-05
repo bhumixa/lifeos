@@ -1,0 +1,29 @@
+<div class="chat-window">
+  <div class="chat-window__messages">
+    @if (messages().length === 0) {
+      <app-empty-state
+        icon="psychology"
+        title="Ask your AI Coach"
+        message="Ask about your tasks, habits, goals, or planner. Responses are advisory only — you decide what to act on."
+      />
+    } @else {
+      @for (message of messages(); track message.id) {
+        <app-chat-message [message]="message" />
+      }
+    }
+    @if (sending()) {
+      <p class="chat-window__typing">AI Coach is thinking…</p>
+    }
+  </div>
+
+  <form class="chat-window__composer" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="chat-window__field">
+      <mat-label>Message</mat-label>
+      <input matInput [ngModel]="draft()" (ngModelChange)="draft.set($event)" name="draft" autocomplete="off" />
+    </mat-form-field>
+    <button type="submit" mat-flat-button [disabled]="sending() || !draft().trim()">
+      <mat-icon>send</mat-icon>
+      Send
+    </button>
+  </form>
+</div>

@@ -77,6 +77,15 @@
         <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
       }
     }
+    @if (aiStatsLoading()) {
+      @for (i of [0, 1, 2]; track i) {
+        <app-skeleton height="76px" />
+      }
+    } @else {
+      @for (stat of aiStats(); track stat.label) {
+        <app-stat-card [label]="stat.label" [value]="stat.value" [icon]="stat.icon" />
+      }
+    }
   </div>
 
   <div class="dashboard__panels">
@@ -86,5 +95,10 @@
     <app-routine-summary />
     <app-habits-quick-complete />
     <app-recent-activity [notifications]="recentNotifications()" [loading]="recentActivityLoading()" />
+    <app-ai-insights-panel
+      [topRecommendation]="aiTopRecommendation()"
+      [riskAlerts]="aiRiskAlerts()"
+      [loading]="aiPanelLoading()"
+    />
   </div>
 </section>

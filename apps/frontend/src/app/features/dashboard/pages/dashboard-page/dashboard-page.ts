@@ -1,18 +1,20 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import type { Notification, PlannerDay } from '@lifeos/shared-types';
+import type { AiInsight, Notification, PlannerDay } from '@lifeos/shared-types';
 import { interval, map, startWith } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { Skeleton } from '../../../../shared/components/skeleton/skeleton';
 import { StatCard } from '../../../../shared/components/stat-card/stat-card';
 import { formatDuration } from '../../../planner/utils/planner-display';
 import { computePlannerSummary } from '../../../planner/utils/planner-summary';
+import { AiInsightsPanel } from '../../components/ai-insights-panel/ai-insights-panel';
 import { CalendarScheduleCard } from '../../components/calendar-schedule-card/calendar-schedule-card';
 import { HabitsQuickComplete } from '../../components/habits-quick-complete/habits-quick-complete';
 import { PlannerTimelineCard } from '../../components/planner-timeline-card/planner-timeline-card';
 import { QuickActions } from '../../components/quick-actions/quick-actions';
 import { RecentActivity } from '../../components/recent-activity/recent-activity';
 import { RoutineSummaryCard } from '../../components/routine-summary/routine-summary';
+import { DashboardAiService } from '../../services/dashboard-ai.service';
 import { DashboardCalendarService, type DashboardScheduleItem } from '../../services/dashboard-calendar.service';
 import { DashboardGoalsService } from '../../services/dashboard-goals.service';
 import { DashboardHabitStatsService } from '../../services/dashboard-habit-stats.service';
@@ -39,6 +41,7 @@ interface DashboardStat {
     PlannerTimelineCard,
     CalendarScheduleCard,
     RecentActivity,
+    AiInsightsPanel,
   ],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
@@ -53,6 +56,7 @@ export class DashboardPage implements OnInit {
   private readonly dashboardJournal = inject(DashboardJournalService);
   private readonly dashboardCalendar = inject(DashboardCalendarService);
   private readonly dashboardNotifications = inject(DashboardNotificationsService);
+  private readonly dashboardAi = inject(DashboardAiService);
 
   protected readonly user = this.authService.user;
 
@@ -119,6 +123,16 @@ export class DashboardPage implements OnInit {
   ]);
   protected readonly recentActivityLoading = signal(true);
   protected readonly recentNotifications = signal<Notification[]>([]);
+
+  protected readonly aiStatsLoading = signal(true);
+  protected readonly aiStats = signal<DashboardStat[]>([
+    { label: 'Active Insights', value: '—', icon: 'psychology' },
+    { label: 'Productivity Trend', value: '—', icon: 'trending_up' },
+    { label: 'Risk Alerts', value: '—', icon: 'warning' },
+  ]);
+  protected readonly aiPanelLoading = signal(true);
+  protected readonly aiTopRecommendation = signal<AiInsight | null>(null);
+  protected readonly aiRiskAlerts = signal<AiInsight[]>([]);
 
   // Ticks once a minute — enough resolution for a "current time" readout without re-rendering
   // every second for no visible benefit.
@@ -287,6 +301,29 @@ export class DashboardPage implements OnInit {
       error: () => {
         this.notificationsStatsLoading.set(false);
         this.recentActivityLoading.set(false);
+      },
+    });
+
+    this.dashboardAi.load().subscribe({
+      next: (summary) => {
+        const deltaPercent = summary.productivityTrend?.sourceData?.['deltaPercent'];
+        this.aiStats.set([
+          { label: 'Active Insights', value: String(summary.activeInsightCount), icon: 'psychology' },
+          {
+            label: 'Productivity Trend',
+            value: typeof deltaPercent === 'number' ? `${deltaPercent > 0 ? '+' : ''}${deltaPercent}%` : '—',
+            icon: 'trending_up',
+          },
+          { label: 'Risk Alerts', value: String(summary.riskAlerts.length), icon: 'warning' },
+        ]);
+        this.aiStatsLoading.set(false);
+        this.aiTopRecommendation.set(summary.topRecommendation);
+        this.aiRiskAlerts.set(summary.riskAlerts);
+        this.aiPanelLoading.set(false);
+      },
+      error: () => {
+        this.aiStatsLoading.set(false);
+        this.aiPanelLoading.set(false);
       },
     });
   }

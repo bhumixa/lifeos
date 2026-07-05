@@ -305,16 +305,93 @@ when the user's own `enableEmail`/`enablePush` preference is on — `SMS`/`DESKT
 corresponding preference flag yet (per this milestone's literal field list), so nothing routes to
 them automatically, though both adapters exist in `NotificationChannelRegistry` as a ready seam.
 
+## AI Coach (Milestone 13)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/ai/insights` | Paginated list — filter by `type`/`status` (defaults to `ACTIVE`), sort by `generatedAt`/`createdAt`/`confidence`. |
+| GET | `/ai/insights/:id` | One insight. |
+| POST | `/ai/insights/generate` | Generates and persists insight(s). Body `{ type? }` — omit `type` to generate one insight for each of PRODUCTIVITY/HABITS/GOALS/PLANNER/JOURNAL/STREAKS (SYSTEM excluded); pass one to generate just that type. Returns the created insight(s). |
+| POST | `/ai/chat` | Body `{ conversationId?, message }`. Omitting `conversationId` starts a new conversation (auto-titled from `message`, truncated to 60 chars); passing one appends to an existing conversation the requesting user owns. Returns `{ conversationId, userMessage, assistantMessage }`. |
+| GET | `/ai/conversations` | Every conversation for the requesting user, newest-`updatedAt`-first, each with a `messageCount` (no `messages` array — kept cheap regardless of conversation length). |
+| GET | `/ai/conversations/:id` | One conversation with its full, chronological `messages` array. |
+| POST | `/ai/conversations` | Creates an empty conversation. Body `{ title? }` (defaults to "New Conversation"). Distinct from `POST /ai/chat`, which both creates (if needed) and sends the first message in one call. |
+
+**AI Coach is strictly read-only with respect to every other module's data — it can read
+everything, but the only rows it ever writes are its own `AiInsight`/`AiConversation`/`AiMessage`.**
+`AiAnalysisService` composes `TasksService`/`HabitsService`/`PlannerService`/`StreaksService`/
+`GoalsService`/`JournalService`/`NotificationsService` — the seven domains this milestone analyzes —
+exclusively through each one's own read-only methods, and deliberately never
+`StreaksService.getStatistics` (persists newly-unlocked achievements) or `GoalsService.getProgress`
+(persists a refreshed `currentValue`), since both have a write side effect that this milestone's
+"never modifies data" business rule rules out even indirectly. All recommendations — every insight
+and every chat reply — are advisory only; nothing in this API can trigger a change to a Task,
+Habit, Goal, Planner block, or Journal entry.
+
+**`InsightType` routing.** `HABITS`/`GOALS`/`PLANNER`/`JOURNAL` each map to a dedicated
+`AiProvider` method (`analyzeHabits`/`analyzeGoals`/`analyzePlanner`/`analyzeJournal`);
+`PRODUCTIVITY`/`STREAKS`/`SYSTEM` share the general-purpose `generateInsight`, since they're
+cross-cutting analyses with no single owning module.
+
+**`sourceData` is a documented, per-type contract**, not an opaque blob — every value below is
+what `AiAnalysisService` computed and handed to the provider, persisted verbatim on the created
+row so the Dashboard's widgets (and any future client) can read structured numbers directly instead
+of parsing `content`'s prose:
+
+| `type` | `sourceData` shape |
+|---|---|
+| `PRODUCTIVITY` | `completionRateThisWeek`/`completionRateLastWeek`/`deltaPercent` (Task+Planner completion, week-over-week), `bestWeekdays` (string[]), `unreadNotifications`, `daysAvailable`, `confidence`, `flags`. |
+| `HABITS` | `completionPercentageToday`, `totalActiveHabits`, `habitsCompletedToday`, `morningCompletions`/`eveningCompletions` (before/after 10 AM local time), `confidence`, `flags`. |
+| `GOALS` | `activeGoalCount`, `onTrackCount`, `atRiskGoals` (`{ id, title, progressPercent, expectedPercent, targetDate }[]`), `confidence`, `flags`. |
+| `PLANNER` | Same week-over-week shape as `PRODUCTIVITY` plus `totalBlocksThisWeek`, `daysAvailable`, `confidence`, `flags`. |
+| `JOURNAL` | `direction` (`IMPROVING`/`DECLINING`/`STABLE`), `consecutiveDays`, `entriesAnalyzed`, `latestMood`, `confidence`, `flags`. |
+| `STREAKS` | `hasDailyHabits`, `currentStreak`, `longestStreak`, `isTodaySuccessful`, `freezesRemainingThisMonth`, `confidence`, `flags`. |
+
+**`flags` is the one generic, cross-type signal every shape above sets consistently** — an array
+that includes `'risk'` when the insight represents something worth flagging (a completion-rate
+drop of 10+ points, a goal behind schedule, a declining mood trend, a broken streak). The
+Dashboard's Risk Alerts widget filters on this directly, without a dedicated boolean column or a
+per-type parsing rule.
+
+**Provider architecture.** `AiProvider` (`generateInsight`/`analyzeHabits`/`analyzeGoals`/
+`analyzePlanner`/`analyzeJournal`/`chat`) is the seam every backend implements, resolved through
+`AiProviderRegistry` — the same interface-plus-adapter-plus-registry shape Calendar's
+`ICalendarProvider` and Notifications' `INotificationChannel` already established. `MockAiProvider`
+is the only one that does anything real: it deterministically formats `AiAnalysisService`'s
+computed metrics into text (`utils/insight-templates.util.ts`) — no external API call, ever.
+`OpenAiProvider`/`AnthropicProvider`/`GoogleAiProvider` all extend `PlaceholderAiProvider`, which
+always returns an explicit `NOT_IMPLEMENTED` result — never a thrown exception, never a silent
+no-op. `AiProviderRegistry.getActive()` is hardcoded to `MOCK`; there is no env-driven provider
+selection, per this milestone's explicit instruction not to connect to a real OpenAI/Anthropic/
+Google API.
+
+**Chat has no persisted system prompt.** `AiPromptService.buildChatSystemPrompt` builds the
+safety/advisory framing fresh on every call and prepends it (as a `SYSTEM`-role message) to the
+trailing conversation history (bounded to the last 20 messages) before calling the active
+provider's `chat()` — it's never stored as an `AiMessage` row. `MockAiProvider.chat` never claims
+to have taken an action on the user's behalf; every reply explicitly frames itself as a starting
+point for the user's own judgment.
+
+**Dashboard integration.** `DashboardAiService` derives all four AI Coach widgets (AI Summary,
+Top Recommendation, Productivity Trend, Risk Alerts) from one `GET /ai/insights?status=ACTIVE`
+call — the same "one endpoint, several derived widgets, no dashboard-specific endpoint" shape every
+prior Dashboard service already establishes. Top Recommendation is the highest-`confidence` active
+insight; Productivity Trend reads the `PRODUCTIVITY`-type insight's `sourceData.deltaPercent`
+directly; Risk Alerts is every insight whose `sourceData.flags` includes `'risk'`.
+
 ## Not yet implemented
 
-AI Coach, Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
+Analytics, Subscriptions, Admin — see `docs/09-roadmap.md` for milestone sequencing.
 XP/achievements are the beginning of "Gamification," per that roadmap's Phase 3, but a level
 system, badges beyond the fixed `Achievement` catalog, and daily/weekly Challenges remain unbuilt
-(see the note on Milestone 8 in `docs/changelog.md`). `JournalService` is exported by
-`JournalModule` specifically so a future AI Coach module can reuse it as a read source for coaching
-context — no AI code exists yet. Calendar's own OAuth/external API integration (Google/Microsoft/
-Apple/iCal) remains unbuilt — see the Calendar section above. Notifications (Milestone 12) is
-architecturally complete but has no real email/push/SMS/desktop provider behind it, and no
-background worker process yet drains `NotificationQueueService.processDue` or calls
+(see the note on Milestone 8 in `docs/changelog.md`). Calendar's own OAuth/external API integration
+(Google/Microsoft/Apple/iCal) remains unbuilt — see the Calendar section above. Notifications
+(Milestone 12) is architecturally complete but has no real email/push/SMS/desktop provider behind
+it, and no background worker process yet drains `NotificationQueueService.processDue` or calls
 `NotificationSchedulerService.scanUpcomingCalendarEvents` on a schedule — see the Notifications
-section above.
+section above. AI Coach (Milestone 13) is architecturally complete but has no real
+OpenAI/Anthropic/Google AI provider behind it (all three are documented `NOT_IMPLEMENTED`
+placeholders by design); there's no dismiss/archive endpoint for `AiInsight` yet (the
+`InsightStatus` enum and list-side filtering exist, but nothing writes `ARCHIVED`/`DISMISSED`); and
+no job acts on `expiresAt` (the column is written and returned, but `GET /ai/insights` doesn't
+exclude expired rows automatically) — see the AI Coach section above.

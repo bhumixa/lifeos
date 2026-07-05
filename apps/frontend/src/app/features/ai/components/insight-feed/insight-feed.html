@@ -1,0 +1,19 @@
+@if (loading()) {
+  <div class="insight-feed__skeletons">
+    @for (i of [1, 2, 3]; track i) {
+      <app-skeleton height="6rem" />
+    }
+  </div>
+} @else if (insights().length === 0) {
+  <app-empty-state
+    icon="psychology"
+    title="No insights yet"
+    message="Generate an insight to get a data-backed look at your productivity, habits, goals, and more."
+  />
+} @else {
+  <div class="insight-feed__list">
+    @for (insight of insights(); track insight.id) {
+      <app-insight-card [insight]="insight" (opened)="opened.emit($event)" />
+    }
+  </div>
+}

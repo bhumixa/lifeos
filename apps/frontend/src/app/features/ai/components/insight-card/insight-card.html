@@ -1,0 +1,23 @@
+<div class="insight-card" [class.insight-card--risk]="isRisk">
+  <mat-icon class="insight-card__icon">{{ typeIcons[insight().type] }}</mat-icon>
+
+  <div class="insight-card__body">
+    <div class="insight-card__header">
+      <span class="insight-card__title">{{ insight().title }}</span>
+      <div class="insight-card__badges">
+        @if (isRisk) {
+          <app-badge label="Risk" variant="danger" />
+        }
+        <app-badge [label]="typeLabels[insight().type]" variant="neutral" />
+        <app-confidence-badge [confidence]="insight().confidence" />
+      </div>
+    </div>
+    <p class="insight-card__summary">{{ insight().summary }}</p>
+    @if (expanded()) {
+      <p class="insight-card__content">{{ insight().content }}</p>
+    }
+    <button type="button" mat-button (click)="toggle()">
+      {{ expanded() ? 'Hide details' : 'View details' }}
+    </button>
+  </div>
+</div>
